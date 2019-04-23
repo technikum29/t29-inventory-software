@@ -1,30 +1,44 @@
 % Inventurmarken fuer technikum29 Museumssamlung, mit Latex erzeugt.
 % 2018-06-12 SvenK in the public domain
+% 2019-04-23 Larger marks
 %
-% This file is written for Herma 4222 sheets
-% https://www.herma.de/produkt/typenschild-etiketten-a4-superprint-lasercopy-4222/
 
-\documentclass[a4paper,10pt]{letter}
-\usepackage[emptycrossmark]{ticket}
+\documentclass[a4paper,11pt]{extletter}
+%\usepackage[emptycrossmark,rowmode]{ticket}
+\usepackage[boxed]{ticket}
 
 \usepackage[a4paper,margin=0pt]{geometry}
-%\setlength{\topmargin}{1mm}%7mm}
+\setlength{\parindent}{0pt} % no effect
+%\setlength{\topmargin}{0mm}%7mm}
 %\setlength{\leftmargin}{1mm}%15.5mm}
 
+% A4 page is 210 x 297 mm
 \unitlength=1mm
 % Das sind die Seiten-Offsets:
-\hoffset=7mm
-\voffset=15.5mm
-\ticketNumbers{3}{9}
-\ticketSize{63.5}{29.6}     % in unitlength
-\ticketDistance{2.5}{0}    % in unitlength 
+\hoffset=0mm
+\voffset=-3mm
+\ticketNumbers{1}{2}
+\ticketSize{210}{148.5}    % in unitlength
+\ticketDistance{0}{0}    % in unitlength 
 
 \newcommand\bold{\bfseries\sffamily}
 
 % load misc stuff
 \usepackage{graphicx}
-\usepackage{color}
+\usepackage{color,xcolor}
 %\usepackage{layout}
+
+\usepackage{mathptmx}
+\usepackage{anyfontsize}
+
+
+\newcommand\Gross{\fontsize{25}{60}\selectfont}
+\newcommand\MittelGross{\fontsize{30}{60}\selectfont}
+\newcommand\SehrGross{\fontsize{40}{60}\selectfont}
+\newcommand\RiesenGross{\fontsize{70}{60}\selectfont}
+
+
+\graphicspath{{../}}
 
 \usepackage{qrcode}
 
@@ -32,45 +46,46 @@
 % here it is empty, because we use different tickets for the front an
 % the back of our card
 \renewcommand{\ticketdefault}{%
-    \put(  5, 14){\includegraphics[width=1cm]{t29-logomarke.pdf}}%
-    \put( 18, 23){Eigentum von}
-    \put( 18, 18.5){\large {\bold technikum29}}
-    \put( 18, 14){Computer Museum}
+    \put( 20, 100){\includegraphics[width=2.5cm]{t29-logomarke.pdf}}%
+    \put( 55, 125){\Gross Eigentum von}
+    \put( 55, 112){\SehrGross {\bold technikum29}}
+    \put( 55, 100){\Gross Computer Museum}
+    \put( 55, 4){{\color{gray}{Etiketten-Serie B, April 2019, Sven K\"oppel}}} 
 }
 
 % now what do you like to put in your ticket
 \newcommand{\acard}[1]{\ticket{%
-    \put( 18, 5){\large\ Inventar Nr. \bold \huge #1}
-    \put(  5, 6){\qrcode[height=1cm,version=1]{t29/inventar/#1}}%
+    \put( 55, 10){\SehrGross Inventar Nr. \bold \RiesenGross #1}
+    \put( 20, 20){\qrcode[height=2.5cm,version=1]{t29/inventar/#1}}%
 }}
 
 \newcounter{inventarnr}
 
 % keep in mind that there are 29 bades on a page
-\newcommand\inventarStart{100}
-\newcommand\inventarStop{200}
+\newcommand\inventarStart{400}
+\newcommand\inventarStop{404}
 
-\begin{document}
+\begin{document}%
 %\layout\newpage
-\sffamily
-
+\sffamily%
+%
 % cards with an empty crossmark
 %%\whiledo{\thenumcards<25}{\stepcounter{numcards}\acard{\thenumcards}}%
-
+%
 % cards with cutmarks
 %%\setcounter{numcards}{0}\ticketreset\clearpage%
 %%\makeatletter\@emptycrossmarkfalse\@cutmarktrue\makeatother
-
+%
 % cards with crossmarks
 %%\setcounter{numcards}{0}\ticketreset\clearpage%
 %%\makeatletter\@boxedfalse\@crossmarktrue\makeatother
-
+%
 % cards boxed
 \setcounter{inventarnr}{\inventarStart}\ticketreset\clearpage%
-\makeatletter\@cutmarkfalse\@boxedtrue\makeatother
+\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
 \whiledo{\theinventarnr<\inventarStop}{\stepcounter{inventarnr}\acard{\theinventarnr}}%
-
-
+%
+%
 \end{document}
 
 
