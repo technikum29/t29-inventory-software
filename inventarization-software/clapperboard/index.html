@@ -8,6 +8,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <link rel="stylesheet" type="text/css" href="clapperboard.css">
+  
+  <script src="zepto.min.js" type="text/javascript"></script><!-- lightweight jquery alternative -->
   <script src="qrcode.js" type="text/javascript"></script>
   <script src="dtmf.js" type="text/javascript"></script>
   <script src="clapperboard.js" type="text/javascript"></script>
@@ -15,6 +17,7 @@
 <body>
 <div id="nav">
   <h3>technikum29 inventory clapperboard</h3>
+  <span id="status"></span>
 </div>
 
 <form>
@@ -23,4 +26,5 @@
     <span id="inv-hash">Inv-Nr. #</span><input type="number" id="inv-nr" placeholder="xxx">
   </div>
 </form>
-  
+
+<pre id="ws"></pre>
