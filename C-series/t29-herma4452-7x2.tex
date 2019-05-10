@@ -1,0 +1,92 @@
+% Inventurmarken fuer technikum29 Museumssamlung, mit Latex erzeugt.
+% 2018-06-12 SvenK in the public domain
+% 2019-04-23 Larger marks
+% 2019-05-09 for Herma 4452
+%
+
+\documentclass[a4paper,11pt]{extletter}
+%\usepackage[emptycrossmark,rowmode]{ticket}
+\usepackage[cutmark,rowmode]{ticket} % cutmark
+
+\usepackage[a4paper,margin=0pt]{geometry}
+\setlength{\parindent}{0pt} % no effect
+%\setlength{\topmargin}{0mm}%7mm}
+%\setlength{\leftmargin}{1mm}%15.5mm}
+
+% A4 page is 210 x 297 mm
+\unitlength=1mm
+% Das sind die Seiten-Offsets:
+\hoffset=0mm
+\voffset=0mm
+\ticketNumbers{2}{7}
+\ticketSize{105}{42}    % in unitlength
+\ticketDistance{0}{0}   % in unitlength 
+
+\newcommand\bold{\bfseries\sffamily}
+
+% load misc stuff
+\usepackage{graphicx}
+\usepackage{color,xcolor}
+%\usepackage{layout}
+
+\usepackage{mathptmx}
+\usepackage{anyfontsize}
+
+
+\newcommand\Gross{\fontsize{25}{60}\selectfont}
+\newcommand\MittelGross{\fontsize{30}{60}\selectfont}
+\newcommand\SehrGross{\fontsize{40}{60}\selectfont}
+\newcommand\RiesenGross{\fontsize{70}{60}\selectfont}
+
+
+\graphicspath{{../}}
+
+\usepackage{qrcode}
+
+% make your default ticket. \ticketdefault is somewhat like a background
+% here it is empty, because we use different tickets for the front an
+% the back of our card
+\renewcommand{\ticketdefault}{%
+    \put( 10, 63){\includegraphics[width=1.5cm]{t29-logomarke.pdf}}%
+    \put( 30, 75){\Large Eigentum von}
+    \put( 30, 70){\Large \bold technikum29}
+    \put( 30, 65){\Large Computer Museum}
+    \put( 30, 2.5){{\small \color{gray}{Etiketten-Serie C, Mai 2019, Sven K\"oppel}}} 
+}
+
+% now what do you like to put in your ticket
+\newcommand{\acard}[1]{\ticket{%
+    \put( 30, 8){\Large Inventar Nr. \bold \SehrGross #1}
+    \put( 10, 9){\qrcode[height=1.5cm,version=1]{t29/inventar/#1}}%
+}}
+
+\newcounter{inventarnr}
+
+% keep in mind that there are 8 bades on a page
+\newcommand\inventarStart{1131}
+\newcommand\inventarStop{1212}
+
+\begin{document}%
+%\layout\newpage
+\sffamily%
+%
+% cards with an empty crossmark
+%%\whiledo{\thenumcards<25}{\stepcounter{numcards}\acard{\thenumcards}}%
+%
+% cards with cutmarks
+%%\setcounter{numcards}{0}\ticketreset\clearpage%
+%%\makeatletter\@emptycrossmarkfalse\@cutmarktrue\makeatother
+%
+% cards with crossmarks
+%%\setcounter{numcards}{0}\ticketreset\clearpage%
+%%\makeatletter\@boxedfalse\@crossmarktrue\makeatother
+%
+% cards boxed
+\setcounter{inventarnr}{\inventarStart}\ticketreset\clearpage%
+\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
+\whiledo{\theinventarnr<\inventarStop}{\stepcounter{inventarnr}\acard{\theinventarnr}}%
+%
+%
+\end{document}
+
+
