@@ -1,0 +1,87 @@
+/* A smallish minimal CSS written in train, thus not using any library */
+/* Later standing next to the Semantic UI framework */
+
+html, body {
+	font-family: Arial, sans-serif;
+	margin: 0; padding: 0;
+}
+
+body #loader {
+	transition: opacity 0.5s linear;
+}
+
+body.loading #app, body.loaded #loader { opacity: 0; }
+body.loaded #app, body.loading #loader { opacity: 1; }
+
+#loader {
+	position: absolute;
+	top: 0; left: 0;
+	
+	font-size: 130%;
+	color: #888;
+}
+
+/** new, Related to Semantic-UI **/
+
+#content {
+	margin-top: 7em;
+	padding: 2%;
+}
+
+#edit-infobox {
+	margin-top: -2%;
+	margin-bottom: 2%;
+}
+
+.inventory-list .card .image {
+	object-fit: cover;
+}
+
+.inventory-list .card .header, .inventory-list .card .meta {
+	display: inline !important; /* more compact */
+}
+
+
+input.pseudo, textarea.pseudo {
+	/* Only show input-style when focus */
+	display: inline-block;
+	border: none;
+	background-color: inherit;
+	font: inherit;
+	margin: 0; padding: 0;
+}
+
+textarea.pseudo {
+	width: 100%;
+}
+
+.pseudo:hover, .pseudo:focus {
+	background-color: #eee;
+}
+
+/** old stuff **/
+
+#header {
+	background-color: #e9f1eb;
+	padding: .5em;
+}
+
+
+ul.nav, ul.nav li {
+	display: inline-block;
+	margin: 0; padding: 0;
+}
+
+ul.nav li a {
+	display: inline-block;
+	padding: .5em 1em;
+}
+
+ul.nav li a:hover, ul.nav li a:focus {
+	background-color: #c7dacb;
+}
+
+
+div.inventory-detail ul.media img {
+	max-width: 200px;
+}
