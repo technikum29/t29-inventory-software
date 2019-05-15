@@ -4,7 +4,10 @@
 
 window.cb = { /* clapperboard app namespace */
    ws: null,  // Websocket connection
-   mf: []     // Messagefile content
+   mf: [],     // Messagefile content
+   
+   // log only locally
+   log: function(msg) { cb.mf.push({"event": "LOCMSG", "inv-nr": "-", "comment": msg}); }
 };
 
 function numberToCode(value) { // QR code information
@@ -16,19 +19,26 @@ function numberToSound(value) { // DTMF sound information
 }
 
 function log(msg) {
-  ws.send(JSON.stringify({"event": "MSG", "inv-nr": "-", "comment": msg}));
+  cb.ws.send(JSON.stringify({"event": "MSG", "inv-nr": "-", "comment": msg}));
+}
+
+function setCode(code) {
+  cb.ws.send(JSON.stringify({"event": "START", "inv-nr": code, "comment": "from Clapperboard" }));
+  dtmfPlay(numberToSound(code));
 }
 
 function startup(){
   input  = document.getElementById('inv-nr');
   qrcode = new QRCode(document.getElementById('qrcode'), numberToCode());
+  
+  cb.vue = new Vue({ el: "#log", data: cb });
 
   input.addEventListener("input", function(){
      qrcode.makeCode(numberToCode(input.value));
   });
   input.addEventListener("keypress", function(event){
      if(event.key === "Enter") {
-        dtmfPlay(numberToSound(input.value));
+        setCode(input.value);
         // Don't submit form or similar
         event.preventDefault();
         return false;
@@ -45,30 +55,30 @@ function startup(){
 
 function fullSetup(websocket_path) {
   $("#status").text("connected");
+  $("body").addClass("showLog");
   
   $.ajax({
     url: "/get_initial_list",
     success: function(msgs) {
-       console.log("Initial data recieved");
-       cb.mf = msgs;
+       cb.log("Initial data recieved");
+       cb.mf = JSON.parse(msgs);
     }
   });
   
   var loc = window.location;
   var fqdn_ws_path = "ws://" + window.location.host + websocket_path;
-  console.log("Opening Websocket at ", fqdn_ws_path);
-  ws = new WebSocket(fqdn_ws_path);
+  cb.log("Opening Websocket at " + fqdn_ws_path);
+  cb.ws = new WebSocket(fqdn_ws_path);
 
-  ws.onopen = function() {
+  cb.ws.onopen = function() {
     log("Hello from javascript");
   };
-  ws.onmessage = function(evt) {
+  cb.ws.onmessage = function(evt) {
     msg = JSON.parse(evt.data);
-    console.log("Recieved a message");
+    //msg = JSON.parse(msg); // dafuq
+    console.log("recieved ", msg);
     cb.mf.push(msg);
-    //$("#ws").append(evt.data); // yep...
-
-    // Now do double data binding.
+    // Proper double data binding would be nice
   };
 }
 
