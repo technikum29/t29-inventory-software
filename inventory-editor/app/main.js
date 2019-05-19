@@ -16,20 +16,22 @@
  **/
 
 
-/* The global "inv" object is the global State managed by Vue.
+/* The global "app" object is the global State managed by Vue.
  * However, only "state" is observed by jsonpatch and synced
  * between server and client. All other objects are client-local.
  */
-var inv = {
-	state: { inventory: [] },  // sensible defaults
+var app = {
+	state: {},  // the synced object with the server
 	connection: "loading...",
 	patch_size: 0, // default, no changes made (yet)
 
 	// how frequently to compute json patch updates
 	debouncing_time_ms: 200,
-	url_prefix: "",  // such as "/app" or so
+	// a prefix for generated URLS, such as "/app" or so, used in routing
+	url_prefix: "",
+	// the id key field name
+	id_field: "Inv-Nr."  // or: "Inventar-Nr."
 };
-
 
 // Returns a function, that, as long as it continues to be invoked, will not
 // be triggered. The function will be called after it stops being called for
@@ -50,48 +52,58 @@ function debounce(func, wait, immediate) {
 	};
 };
 
-function baseName(str)
-{
-   var base = new String(str).substring(str.lastIndexOf('/') + 1); 
-    if(base.lastIndexOf(".") != -1)       
-        base = base.substring(0, base.lastIndexOf("."));
-   return base;
+function baseName(str) {
+	var base = new String(str).substring(str.lastIndexOf('/') + 1); 
+	if(base.lastIndexOf(".") != -1)       
+		base = base.substring(0, base.lastIndexOf("."));
+	return base;
 };
+
+// natural sorting (like ["1", "2", "10"])
+var natsort_collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+naturalsort = lst => lst.sort(collator.compare)
 
 // Filter objects like arrays
 filterObj = (obj, check) => Object.keys(obj).reduce((r,e) => { if(check(e,obj[e])) r[e] = obj[e]; return r }, {})
 // Escape stuff for regexpes
 escapeRegExp = string => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+// Filter out undedined/Nones/False or empty values
+withoutNones = lst => lst.filter(e=>e)
+// Get all unique values for a certain field
+uniqueFieldValues = (obj, key) => withoutNones($.unique($.map(obj, el => el[key])))
+// Get all values from a certain field
+fieldValues = (obj, key) => withoutNones($.map(obj, el => el[key]))
+
 
 var setup_uplink = function() {
 	// setup synchronization routines
-	var fqdn_ws_path = "ws://" + window.location.host + inv.paths.websocket_path;
-	inv.websocket = new WebSocket(fqdn_ws_path); // allow the state to be displayed by vue
+	var fqdn_ws_path = "ws://" + window.location.host + app.paths.websocket_path;
+	app.websocket = new WebSocket(fqdn_ws_path); // allow the state to be displayed by vue
 	
 	var msg_counter = 0;
-	inv.websocket.onmessage = evt => {
+	app.websocket.onmessage = evt => {
 		//msg = JSON.parse(evt.data)
 		// Initial message is the initial state
-		//if(msg_counter++ == 0) inv.state = msg
+		//if(msg_counter++ == 0) app.state = msg
 		console.log("Recieved ", msg)
 	}
 	
-	inv.websocket.onopen = evt => inv.connection = "connected"
-	inv.websocket.onclose = evt => inv.connection = "closed"
+	app.websocket.onopen = evt => app.connection = "connected"
+	app.websocket.onclose = evt => app.connection = "closed"
 	
 	// Setup jsonpatch observation of inventory object.
 	// Could also define a callback here.
-	var patch_observer = jsonpatch.observe(inv.state);
+	var patch_observer = jsonpatch.observe(app.state);
 	
-	inv.send = function() {
+	app.send = function() {
 		// JSONPatch will show all *pending* changes, i.e. not relative to root document
 		var patch = jsonpatch.generate(patch_observer);
-		inv.patch_size += patch.length;
-		inv.websocket.send(JSON.stringify(patch));
+		app.patch_size += patch.length;
+		app.websocket.send(JSON.stringify(patch));
 	};
 	
-	inv.commit = function() {
-		$.getJSON("/commit", { "message": inv.state.commit_msg  },
+	app.commit = function() {
+		$.getJSON("/commit", { "message": app.state.commit_msg  },
 			  res => console.log(res)
 		)
 		// maybe reloading the page is a good idea now.
@@ -101,31 +113,43 @@ var setup_uplink = function() {
 var setup_components = function() {
 	// Register a couple of global Vue components
 	
-	inv.list_component = Vue.component("InventoryList", {
+	// Hey, the global mixin. To support the crappy strategy of a global object without vuex
+	Vue.mixin({
+		data: function() { return { app: app }; }
+	});
+	// Alternatively and similarly dirty for reactive data: Vue.prototype.$foo = 'bar', access as {{foo}}
+	
+	app.list_component = Vue.component("InventoryList", {
 		template: '#inventory-list',
-		props: ["inventory", "head_commit"],
-		methods: {
-			url_for_teaser: function(local_inv) {
-				var hash = teaser_image_for(local_inv["Inventur-Nr"])
-				if(hash)
-					return inv.paths["media_path"] + "/" + inv.state.media[hash]
-				else
-					return null
+		data: function() {
+			return { // shortcuts to reactive elements:
+				inventory: app.state.files.inventory,
+				head_commit: app.state.head_commit
+			}
+		},
+		computed: {
+			url_for_teaser: function() {
+				return this.inventory.map(inv => {
+					// this function is moderately expensive :/
+					var hash = teaser_image_for(inv[app.id_field])
+					if(hash)
+						return app.paths["media_path"] + "/" + app.state.media[hash] + ".thumb.jpg"
+					else
+						return null
+				});
 				
 			}
 		}
 	});
 	
-	inv.detail_component = Vue.component("InventoryDetail", {
+	app.detail_component = Vue.component("InventoryDetail", {
 		template: '#inventory-detail',
-		props: ["inv",         // inv is an object, not an id
-		        "inventory",   // the watched state
-		],
+		props: ["inv"],         // the inventory record looked at
 		computed: {
-			media: function() { return images_for_id(this.inv["Inventur-Nr"]) },
+			media: function() { return images_for_id(this.inv[app.id_field]) },
 		},
 		methods: {
-			url_for_media: (hash) => inv.paths["media_path"] + "/" + inv.state.media[hash]
+			url_for_media: (hash) => app.paths["media_path"] + "/" + app.state.media[hash]
 		},
 		mounted: function() {
 			// Nice dimming effect of Semantic-UI. Not important, thought.
@@ -133,25 +157,73 @@ var setup_components = function() {
 		}
 	});
 	
-	inv.commit_component = Vue.component("CommitView", {
+	app.commit_component = Vue.component("CommitView", {
 		template: "#commit-view",
-		props: [ "state" ],
-		methods: { commit: inv.commit }
+		data: function() {
+			return { state: app.state }
+		},
+		methods: { commit: app.commit }
+	});
+	
+	// Allows to view/edit the schema one field a time
+	app.schema_editor = Vue.component("SchemaEditor", {
+		template: "#schema-editor",
+		data: function() {
+			return { schema: app.files.schema }
+		},
+		computed: {
+			uniqueEditors: function() { return uniqueFieldValues(this.schema.properties, "editor"); }
+		},
+		methods: {
+			uniqueSchemaFieldValues: // doesnt quite work, using computed instead
+				field => uniqueFieldValues(app.state.files.schema.properties, field),
+			uniqueFieldValues: 
+				field => uniqueFieldValues(app.state.files.inventory, field),
+			fieldValues:
+				field => fieldValues(app.state.files.inventory, field),
+			usage: field => {
+				file = app.state.files.inventory
+				return fieldValues(file, field).length / file.length
+			}
+		}
+	});
+	
+	app.field_display = Vue.component("FieldDisplay", {
+		template: "#field-display",
+		props: [
+			"inv",         // The inventory record (object)
+			"field",       // The name of the field to display (string)
+		],
+		computed: {
+			schema:
+				function() { return app.state.files.schema.properties[this.field] || {
+					/* default schema */
+					editor: "single-line",
+					is_default: true
+				}; },
+			uniqueFieldValues:
+				function() { return uniqueFieldValues(app.state.files.inventory, this.field); }
+		},
+		mounted: function() {
+			// Semantic-UI allways allow additions to dropdowns<
+			$('.ui.dropdown').dropdown({ allowAdditions: true });
+		}
 	});
 };
 
 var inventory_by_id = function(route) {
-	var item = inv.state.files.inventory.find(e_inv => e_inv["Inventur-Nr"] == route.params.id);
+	var item = app.state.files.inventory.find(e_inv => e_inv[app.id_field] == route.params.id);
 	//console.log("Fand zu ID ",route.params.id," Datensatz ", item);
 	return { inv: item,
-		 inventory: inv.state.files.inventory  // global just for navigation
+		 inventory: app.state.files.inventory  // global just for navigation
 	};
 };
 
 var images_for_id = function(invnr) {
 	// Expecting invnr to be a string, as usual.
 	// Returns the subset of media witch are matching
-	return filterObj(inv.state.media, (k,v)=>v.match(new RegExp(escapeRegExp("(") + invnr + escapeRegExp(")"), "g")))
+	numbermatcher = new RegExp(escapeRegExp("(") + invnr + escapeRegExp(")"))
+	return filterObj(app.state.media, (k,v)=> v.match(numbermatcher, "g") && !v.includes(".thumb.jpg"))
 }
 
 var teaser_image_for = function(invnr) {
@@ -166,55 +238,57 @@ var setup_vue_router = function() {
 	
 	var routes = [
 		{
-			path: inv.url_prefix + "/",
-			redirect: inv.url_prefix +"/inv"
+			path: app.url_prefix + "/",
+			redirect: app.url_prefix +"/inv"
 		},
 		{
-			path: inv.url_prefix + '/inv',
-			component: inv.list_component,
-			props: { inventory: inv.state.files.inventory, head_commit: inv.state.head_commit},
+			path: app.url_prefix + '/inv',
+			component: app.list_component,
 			name: "list_all"
 		},
 		{
-			path: inv.url_prefix + '/inv/:id',
-			component: inv.detail_component,
+			path: app.url_prefix + '/inv/:id',
+			component: app.detail_component,
 			props: inventory_by_id,
 			name: "detail"
 		},
 		{
-			path: inv.url_prefix + "/commit",
-			component: inv.commit_component,
-			props: inv,
+			path: app.url_prefix + "/commit",
+			component: app.commit_component,
 			name: "commit"
+		},
+		{
+			path: app.url_prefix + "/schema",
+			component: app.schema_editor,
+			name: "schema"
 		},
 		{ path: '*' },
 	];
 	
 	var router = new VueRouter({ routes });
 	
-	// A Vue in order to make inv.state reactive across all routes
+	// A Vue in order to make app.state reactive across all routes
 	//  and also in order to deal with changing data
 	var state_vue = new Vue({
-		data: inv,
+		data: app,
 		watch: {
 			state: { /* "state" property in the Vue data */ 
-				handler: debounce(inv.send, inv.debouncing_time_ms),
+				handler: debounce(app.send, app.debouncing_time_ms),
 				deep: true,
 				//immediate: true // called immediately after start of observation
 			}
 		},	
 	});
 	
-	
-	var app = new Vue({ 
+	var app_vue = new Vue({ 
 		router: router,
-		data: inv
+		data: app
 	}).$mount('#app');
 };
 
 
-inv.main = function() {
-	load2inv = x => fetch(inv.url_prefix + "/" + x).then(res => res.json()).then(res => inv[x] = res)
+app.main = function() {
+	load2inv = x => fetch(app.url_prefix + "/" + x).then(res => res.json()).then(res => app[x] = res)
 	
 	Promise.all(["paths","files","author"].map(load2inv)).then(docs => {
 		// Now that we have an author Cookie, load the state
@@ -232,5 +306,5 @@ inv.main = function() {
 	$("body").addClass("loading")
 };
 
-//$($=>inv.main());
-$(inv.main)
+//$($=>app.main());
+$(app.main)

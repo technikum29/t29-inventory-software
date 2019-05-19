@@ -33,6 +33,10 @@ body.loaded #app, body.loading #loader { opacity: 1; }
 	margin-bottom: 2%;
 }
 
+#edit-infobox .close.icon {
+	float: right;
+}
+
 .inventory-list .card .image {
 	object-fit: cover;
 }

@@ -30,8 +30,8 @@
 	<div class="ui fixed menu">
 		<div class="ui container">
 			<router-link to="/" class="header item">
-				<img class="logo" src="http://www.technikum29.de/shared/img-v6/logo-dark.footer.png">
-				technikum29 Inventory Viewer and Editor
+				<img class="logo" src="t29-logomarke.svg" style="margin-right:1em">
+				technikum29<br/>Inventory Viewer and Editor
 			</router-link>
 			<div class="ui simple dropdown item">
 				Dropdown <i class="dropdown icon"></i>
@@ -41,7 +41,8 @@
 					<a class="item" href="#">Export</a>
 					<div class="divider"></div>
 					<div class="header">Editing</div>
-					<a class="item" href="#">Commit</a>
+					<router-link to="/commit">Commit</router-link>
+					<router-link to="/schema">Schema</router-link>
 				</div>
 			</div>
 			<div class="ui category search item">
@@ -60,20 +61,22 @@
 	</div>
 	
 	<div id="content">
-		<div class="ui green segment container" id="edit-infobox">
-			<h3 class="ui header">Editing <i class="ui right floated close icon"></i></h3>
-			<p>This page is a <strong>editable by anyone</strong>. There is an underlying Git version repository which
-			   ensures ever change can be tracked and rolled back, if neccessary.
-			   Furthermore, this web application can be used online as well as offline.
-			   Currently, <span class="ui teal horizontal label">Commit <span class="detail">{{ state.head_commit.id.substring(0,6) }}</span></span>
-			   is loaded, originating from {{ state.head_commit.date }}. This commit was last edited by <strong>{{ state.head_commit.author }}</strong>.
-			<p>Your edits are currently tracked with the username
-				<span class="ui left icon input mini">
-					<input type="text" v-model="state.author">.
-					<i class="users icon"></i>
-				</span>. You can change your username any time.
-			   <router-link to="/commit" v-if="patch_size > 0" tag="button" class="ui primary button">Commit {{ patch_size }} changes</router-link>
-			</p>
+		<div id="editing-infobox">
+			<h3 class="ui green top attached header">Editing <i class="ui close icon"></i></h3>
+			<div class="ui attached segment container" id="edit-infobox">
+				<p>This page is a <strong>editable by anyone</strong>. There is an underlying Git version repository which
+				ensures ever change can be tracked and rolled back, if neccessary.
+				Furthermore, this web application can be used online as well as offline.
+				Currently, <span class="ui teal horizontal label">Commit <span class="detail">{{ state.head_commit.id.substring(0,6) }}</span></span>
+				is loaded, originating from {{ state.head_commit.date }}. This commit was last edited by <strong>{{ state.head_commit.author }}</strong>.
+				<p>Your edits are currently tracked with the username
+					<span class="ui left icon input mini">
+						<input type="text" v-model="state.author">.
+						<i class="users icon"></i>
+					</span>. You can change your username any time.
+				<router-link to="/commit" v-if="patch_size > 0" tag="button" class="ui primary button">Commit {{ patch_size }} changes</router-link>
+				</p>
+			</div>
 		</div>
 	
 		<!-- Component matched by the router... -->
@@ -84,12 +87,12 @@
 <!--
 <div id="inventory">
   <li v-for="inv in inventory">
-    {{ inv["Inventur-Nr"] }} {{ inv.Objekt }}
+    {{ inv[app.id_field] }} {{ inv.Objekt }}
   </li>
   
   Das hier funktioniert:
   <inventory-detail v-for="inv in inventory"
-     v-bind:key="inv['Inventur-Nr']"
+     v-bind:key="inv[app.id_field]"
      v-bind:inv="inv" />
 </div>
 -->
@@ -98,16 +101,16 @@
   <div class="inventory-list">
     <h1 class="ui header">Inventory List</h1>
     <div class="ui link cards six column grid">
-	<div class="column" v-for="inv in inventory" v-bind:key="inv['Inventur-Nr']">
-		<router-link :to="{name:'detail', params:{id:inv['Inventur-Nr']}}"  class="ui fluid card">
-			<div class="image" v-if="url_for_teaser(inv)">
-				<img :src="url_for_teaser(inv)">
+	<div class="column" v-for="(inv,index) in inventory" v-bind:key="inv[app.id_field]">
+		<router-link :to="{name:'detail', params:{id:inv[app.id_field]}}"  class="ui fluid card">
+			<div class="image" v-if="url_for_teaser[index]">
+				<img :src="url_for_teaser[index]">
 			</div>
 			<div class="image" v-else>
 				<img src="/t29-inventory-assets/placeholder.svg">
 			</div>
 			<div class="content">
-				<div class="header">{{ inv["Inventur-Nr"] }}</div>
+				<div class="header">{{ inv[app.id_field] }}</div>
 				<div class="meta">
 					{{ inv.Objekt }}
 				</div>
@@ -153,16 +156,18 @@
 			</div>
 			<div class="eight wide column">
 				<h1 class="ui header">
-					<span class="ui massive label">{{ inv["Inventur-Nr"] }}</span> 
+					<span class="ui massive label">{{ inv[app.id_field] }}</span> 
 					<input v-model="inv.Objekt" class="pseudo"><!-- {{ inv.Objekt }}-->
+					<sup><i class="icon info"></i></sup>
 				</h1>
-				<textarea v-model="inv.Beschreibung" class="pseudo">
-				</textarea>
+				
+				<field-display v-bind:inv="inv" field="Beschreibung" />
 				
 				<h2 class="ui dividing header">Location</h2>
-				blablabla
+				Located in building <field-display v-bind:inv="inv" field="Ort" />
+				in room or area <field-display v-bind:inv="inv" field="Bereich" />
 				
-				<h2 class="ui dividing header">All records</h2>
+				<h2 class="ui dividing header">All fields</h2>
 				<table class="ui definition table">
 				<thead>
 					<tr><th>key</th><th>value</th></tr>
@@ -171,6 +176,10 @@
 					<tr v-for="(v,k) in inv" v-bind:key="k">
 						<td>{{ k }}</td>
 						<td><input v-model="inv[k]" class="pseudo"></td>
+					</tr>
+					<tr>
+						<td><input placeholder="New field..."></td>
+						<td><input class="pseudo"></td>
 					</tr>
 				</tbody>
 				</table>
@@ -194,4 +203,98 @@
     
     <button v-on:click="commit">Submit</button>
   </div>
+</script>
+
+<script type="text/x-template" id="schema-editor">
+  <div class="schema-editor">
+    <h1 class="ui header">Inventory schema editor</h1>
+    <p>In the schema editor, you can edit the field descriptions and ways how they are displayed
+    in this very inventory editor.</p>
+
+    <div class="ui card" v-for="(field, fieldname) in schema.properties" v-bind:key="schema.properties.fieldname">
+	<div class="content">
+		<div class="right floated">
+			<div class="ui labeled input mini">
+				<!--<div class="ui label">Editor</div>-->
+				<select class="ui compact dropdown" v-model="field.editor">
+					<option disabled value="">default (inline)</option>
+					<option
+						v-for="opt in uniqueEditors"
+						:value="opt"
+						v-bind:key="uniqueEditors.opt"
+					>{{opt}}</option>
+				</select>
+				<!-- Kann alternativ auch implementiert werden als
+									
+					<div class="ui selection dropdown">
+					<input name="gender" type="hidden">
+					<div class="default text">Select a value</div>
+					<i class="dropdown icon"></i>
+					<div class="menu">
+					<div class="item" data-value="0">Value</div>
+					<div class="item" data-value="1">Another Value</div>
+					</div>
+					</div>
+					
+				-->
+				<!--<input v-model="field.editor" placeholder="Standard">-->
+			</div>
+		</div>
+		<div class="header">{{fieldname}}</div>
+		<div class="description">
+			<p>{{ field.title }}</p>
+			<!--<textarea v-model="field.title" class="pseudo"></textarea>-->
+			
+			<div v-if="field.editor == 'select'">
+				<div v-if="uniqueFieldValues(fieldname)">
+					<p>Auswahlmöglichkeiten auf Basis der Varianten:</p>
+					<ul><li v-for="v in uniqueFieldValues(fieldname)">{{ v }}</li></ul>
+				</div>
+				<p v-else>
+					ieses Feld wird bislang noch von <em>keinem</em> Eintrag in der Datenbank genutzt.
+				</p>
+			</div>
+			Explizite/Vorhergesehene Beispiele aus dem Schema:
+			<ul>
+				<li v-for="example in field.examples">{{ example }}</li>
+			</ul>
+		</div>
+		<div class="extra content">
+				<div class="ui basic label">Usage:
+					<div class="detail">{{ Math.round(usage(fieldname) * 100) }}%</div>
+				</div>
+				<div class="ui basic label">Unique values:
+					<div class="detail">{{ uniqueFieldValues(fieldname).length }}</div>
+				</div>
+		</div>
+
+	</div><!-- content -->
+      </div><!-- ui card -->
+  </div>
+</script>
+
+<script type="text/x-template" id="field-display">
+	<span class="field-display">
+		<input v-if="schema.editor=='single-line'" class="pseudo" v-model="inv[field]" />
+	
+		<textarea v-else-if="schema.editor=='multiline'" class="pseudo" v-model="inv[field]"></textarea>
+		
+		<select v-else-if="schema.editor=='select'" class="ui search compact dropdown" v-model="inv[field]">
+			<option
+				v-for="opt in uniqueFieldValues"
+				:value="opt"
+				v-bind:key="uniqueFieldValues.opt"
+			>{{opt}}</option>
+		</select>
+
+		<div v-else class="ui error message">
+			<div class="header">Field not editable</div>
+			Field type <strong>{{schema.editor}}</strong> for field <strong>{{field}}</strong>
+			    not implmented. Please <router-link to="/schema">edit the schema</router-link>.
+		</div>
+		
+		<div v-if="schema.is_default">
+			(missing schema)
+		</div>
+	</span>
 </script>
