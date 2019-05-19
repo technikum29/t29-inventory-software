@@ -24,6 +24,11 @@ var app = {
 	state: {},  // the synced object with the server
 	connection: "loading...",
 	patch_size: 0, // default, no changes made (yet)
+	view_settings: { // Current/default view state/Preferences in display types
+		inventory_list: { hide_without_images: true, tabular: false,
+			cols: [ "Inv-Nr.", "Objekt", "Beschreibung", "Ort" ]
+		}
+	},
 
 	// how frequently to compute json patch updates
 	debouncing_time_ms: 200,
@@ -32,6 +37,11 @@ var app = {
 	// the id key field name
 	id_field: "Inv-Nr."  // or: "Inventar-Nr."
 };
+
+// possible caveats: Since I am abusing app also as storage for
+//   functions/classes, this could slow down vue.
+
+
 
 // Returns a function, that, as long as it continues to be invoked, will not
 // be triggered. The function will be called after it stops being called for
@@ -58,6 +68,13 @@ function baseName(str) {
 		base = base.substring(0, base.lastIndexOf("."));
 	return base;
 };
+
+// Like pythons os.path.join
+function pathJoin(parts, sep){
+   var separator = sep || '/';
+   var replace   = new RegExp(separator+'{1,}', 'g');
+   return parts.join(separator).replace(replace, separator);
+}
 
 // natural sorting (like ["1", "2", "10"])
 var natsort_collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
@@ -115,80 +132,96 @@ var setup_components = function() {
 	
 	// Hey, the global mixin. To support the crappy strategy of a global object without vuex
 	Vue.mixin({
-		data: function() { return { app: app }; }
+		data: function() { return { app: app }; },
+		
+		// effectively applies to app.views components only, since they are addressed
+		// by the router
+		beforeRouteUpdate (to, from, next) {
+			const toDepth = to.path.split('/').length
+			const fromDepth = from.path.split('/').length
+			this.routing_transition_name = toDepth < fromDepth ? 'slide-right' : 'slide-left'
+			next()
+		},
 	});
 	// Alternatively and similarly dirty for reactive data: Vue.prototype.$foo = 'bar', access as {{foo}}
 	
-	app.list_component = Vue.component("InventoryList", {
-		template: '#inventory-list',
-		data: function() {
-			return { // shortcuts to reactive elements:
-				inventory: app.state.files.inventory,
-				head_commit: app.state.head_commit
-			}
+	app.views = [
+		{
+			path: app.url_prefix + '/inv', // aka "the frontpage"
+			name: "list_all",
+			component: Vue.component("InventoryList", {
+				template: '#inventory-list',
+				data: function() {
+					return { // shortcuts to reactive elements:
+						inventory: app.state.files.inventory,
+						head_commit: app.state.head_commit,
+						view: app.view_settings.inventory_list
+					}
+				},
+				computed: {
+					url_for_teaser: function() {
+						return this.inventory.map(inv => teaser_url_for_id(inv[app.id_field]))
+					}
+				}
+			})
 		},
-		computed: {
-			url_for_teaser: function() {
-				return this.inventory.map(inv => {
-					// this function is moderately expensive :/
-					var hash = teaser_image_for(inv[app.id_field])
-					if(hash)
-						return app.paths["media_path"] + "/" + app.state.media[hash] + ".thumb.jpg"
-					else
-						return null
-				});
-				
-			}
+		{
+			path: app.url_prefix + '/inv/:id',
+			props: inventory_by_id,
+			name: "detail",
+			component:  Vue.component("InventoryDetail", {
+				template: '#inventory-detail',
+				props: ["inv"],         // the inventory record looked at
+				computed: {
+					media: function() { return media_urls_for_id(this.inv[app.id_field]) },
+				},
+				mounted: function() {
+					// Nice dimming effect of Semantic-UI. Not important, thought.
+					$('.cards .image').dimmer({ on: 'hover' });
+				}
+			})
+		},
+		{
+			path: app.url_prefix + "/commit",
+			name: "commit",
+			component: Vue.component("CommitView", {
+				template: "#commit-view",
+				data: function() {
+					return { state: app.state }
+				},
+				methods: { commit: app.commit }
+			})
+		},
+		{
+			// This is currently a schema editor for all fields. Want to go one field a time.
+			path: app.url_prefix + "/schema",
+			name: "schema",
+			component: Vue.component("SchemaEditor", {
+				template: "#schema-editor",
+				data: function() {
+					return { schema: app.files.schema }
+				},
+				computed: {
+					uniqueEditors: function() { return uniqueFieldValues(this.schema.properties, "editor"); }
+				},
+				methods: {
+					uniqueSchemaFieldValues: // doesnt quite work, using computed instead
+						field => uniqueFieldValues(app.state.files.schema.properties, field),
+					uniqueFieldValues: 
+						field => uniqueFieldValues(app.state.files.inventory, field),
+					fieldValues:
+						field => fieldValues(app.state.files.inventory, field),
+					usage: field => {
+						file = app.state.files.inventory
+						return fieldValues(file, field).length / file.length
+					}
+				}
+			})
 		}
-	});
+	]; // end of app.views
 	
-	app.detail_component = Vue.component("InventoryDetail", {
-		template: '#inventory-detail',
-		props: ["inv"],         // the inventory record looked at
-		computed: {
-			media: function() { return images_for_id(this.inv[app.id_field]) },
-		},
-		methods: {
-			url_for_media: (hash) => app.paths["media_path"] + "/" + app.state.media[hash]
-		},
-		mounted: function() {
-			// Nice dimming effect of Semantic-UI. Not important, thought.
-			$('.cards .image').dimmer({ on: 'hover' });
-		}
-	});
-	
-	app.commit_component = Vue.component("CommitView", {
-		template: "#commit-view",
-		data: function() {
-			return { state: app.state }
-		},
-		methods: { commit: app.commit }
-	});
-	
-	// Allows to view/edit the schema one field a time
-	app.schema_editor = Vue.component("SchemaEditor", {
-		template: "#schema-editor",
-		data: function() {
-			return { schema: app.files.schema }
-		},
-		computed: {
-			uniqueEditors: function() { return uniqueFieldValues(this.schema.properties, "editor"); }
-		},
-		methods: {
-			uniqueSchemaFieldValues: // doesnt quite work, using computed instead
-				field => uniqueFieldValues(app.state.files.schema.properties, field),
-			uniqueFieldValues: 
-				field => uniqueFieldValues(app.state.files.inventory, field),
-			fieldValues:
-				field => fieldValues(app.state.files.inventory, field),
-			usage: field => {
-				file = app.state.files.inventory
-				return fieldValues(file, field).length / file.length
-			}
-		}
-	});
-	
-	app.field_display = Vue.component("FieldDisplay", {
+	// This is a real "widget" component and not supposed to be adressable via routers.
+	Vue.component("FieldDisplay", {
 		template: "#field-display",
 		props: [
 			"inv",         // The inventory record (object)
@@ -201,12 +234,17 @@ var setup_components = function() {
 					editor: "single-line",
 					is_default: true
 				}; },
+
+			// computing this for every component is quite slow, especially if the page
+			// has many of these componens.
 			uniqueFieldValues:
 				function() { return uniqueFieldValues(app.state.files.inventory, this.field); }
 		},
 		mounted: function() {
-			// Semantic-UI allways allow additions to dropdowns<
-			$('.ui.dropdown').dropdown({ allowAdditions: true });
+			// This is super slow.
+			
+			// Semantic-UI allways allow additions to dropdowns
+			// $('.ui.dropdown').dropdown({ allowAdditions: true }); // -> try differently instead
 		}
 	});
 };
@@ -219,53 +257,39 @@ var inventory_by_id = function(route) {
 	};
 };
 
-var images_for_id = function(invnr) {
+var media_urls_for_id = function(invnr) {
 	// Expecting invnr to be a string, as usual.
 	// Returns the subset of media witch are matching
-	numbermatcher = new RegExp(escapeRegExp("(") + invnr + escapeRegExp(")"))
-	return filterObj(app.state.media, (k,v)=> v.match(numbermatcher, "g") && !v.includes(".thumb.jpg"))
+	// numbermatcher = new RegExp(escapeRegExp("(") + invnr + escapeRegExp(")"))
+	// return filterObj(app.state.media, (k,v)=> v.match(numbermatcher, "g") && !v.includes(".thumb.jpg"))
+	return (app.state.files.media[invnr] || [/* empty list */])
+		.map(p => pathJoin([app.paths.media_path, app.paths.media_config.cache_directory, p]))
 }
 
-var teaser_image_for = function(invnr) {
-	var images = images_for_id(invnr)
-	var keys = Object.keys(images)
-	if(keys.length)
-		return keys[0] // not the best one
+var teaser_url_for_id = function(invnr) {
+	//var images = images_for_id(invnr)
+	//var keys = Object.keys(images)
+	//if(keys.length)
+	//	return keys[0] // not the best one
+	var imgs = media_urls_for_id(invnr);
+	if(imgs.length)
+		return imgs[0] + app.paths.media_config.square_thumbnail_suffix
 }
 
 var setup_vue_router = function() {
 	setup_components();
 	
-	var routes = [
-		{
-			path: app.url_prefix + "/",
-			redirect: app.url_prefix +"/inv"
-		},
-		{
-			path: app.url_prefix + '/inv',
-			component: app.list_component,
-			name: "list_all"
-		},
-		{
-			path: app.url_prefix + '/inv/:id',
-			component: app.detail_component,
-			props: inventory_by_id,
-			name: "detail"
-		},
-		{
-			path: app.url_prefix + "/commit",
-			component: app.commit_component,
-			name: "commit"
-		},
-		{
-			path: app.url_prefix + "/schema",
-			component: app.schema_editor,
-			name: "schema"
-		},
-		{ path: '*' },
-	];
+	var routes = [].concat(
+		[ { path: app.url_prefix + "/", redirect: app.url_prefix +"/inv" } ],
+		app.views,
+		[ { path: '*' } ]
+	);
 	
-	var router = new VueRouter({ routes });
+	var router = new VueRouter({
+		routes,
+		base: app.url_prefix
+		
+	});
 	
 	// A Vue in order to make app.state reactive across all routes
 	//  and also in order to deal with changing data

@@ -40,7 +40,7 @@ class memoize:
             self.memo[args] = self.f(*args)
         return self.memo[args]
 
-md5sum = lambda fname: hashlib.md5(open(fname,'rb').read()).hexdigest()
+flatten = lambda x: [inner for outer in x for inner in outer ] # simple flatten 2d
 randomString = lambda stringLength=10: ''.join(random.choice(string.ascii_lowercase) for i in range(stringLength))
 make_default_identifier = lambda ip_as_str: ip_as_str + randomString(3)
 author_legal = lambda author: bool(re.match('^[a-zA-Z0-9][a-zA-Z0-9-_.\s]+$', author))
@@ -63,23 +63,32 @@ static_file_path = os.path.dirname(__file__)
 
 paths = {
 	# files in the local directory
-	"inventory_repository": "./inventory/",
+	"inventory_repository": "../../test-inventory/",
 	"patches_directory": "./patches/",
-	"media_directory": "./t29-inventory-assets/",
+	"media_repository": "../../t29-inventory-assets/",
+	
+	# relative to media_directory or media_path, respectively,
+	# containing more paths and information
+	"media_config_file": "media_config.json",
 	
 	# A "virtual" URL endpoint, no files
 	"websocket_path": "/lazy-websocket-editor",
 	"inventory_path": "/inventory/inventory.json", # mind the missing dot; absolute
-	"media_path":     "/t29-inventory-assets"
+	"media_path":     "/t29-inventory-assets/"
 }
 
 repo_files = {
 	"inventory": "inventory.json",
-	"schema": "schema.json"
+	"schema": "schema.json",
+	"media": "media.json"
 }
 
-master = pygit2.Repository(paths["inventory_repository"])
+#   a {media repository} holds several {media collections} which are directories holding photos.
+media_config = read_json_file(os.path.join(paths["media_repository"], paths["media_config_file"]))
+# "Mount" media config into paths for simplicity and sharing with client
+paths["media_config"] = media_config
 
+master = pygit2.Repository(paths["inventory_repository"])
 
 repo_file = lambda fname: os.path.join(paths["inventory_repository"], fname)
 workdir_path = lambda author: os.path.join(paths["patches_directory"], author)
@@ -98,12 +107,22 @@ def repo_head(repo_path=None):
 		"message": commit.message
 	}
 
-md5sums = memoize(md5sum)
-def list_media():
-	"Return a content-addressed list of media which might be used for renaming by the client"
-	all_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(paths["media_directory"]) for f in filenames ]
-	# Give the list of figures relative to media_directory.
-	return { md5sums(fn): os.path.relpath(fn, paths["media_directory"]) for fn in all_files} 
+
+def media_list():
+	# Deprecated: I now stick to a repo-managed list which makes changing assignments
+	# trivial and evventually allows for tracking who provided which files.
+	
+	"""
+	Return a list of media which might be used for renaming by the client.
+	Note: the list of filenames is unsorted and may contain anything (not only photos or media)
+	"""
+	all_files = flatten([
+		[os.path.join(dp, f) for dp, dn, filenames in os.walk(os.path.join(paths["media_repository"], media_collection)) for f in filenames ]
+		for media_collection in media_config["media_collections"]
+	])
+		
+	# Give the list of figures relative to media_repository.
+	return [ os.path.relpath(fn, paths["media_repository"]) for fn in all_files ]
 
 def provide_state(repo_path=None):
 	"Read repository and provide data to work with"
@@ -111,7 +130,6 @@ def provide_state(repo_path=None):
 	return {
 		"head_commit": repo_head(),
 		"files": { k: read_json_file(repo_file(v)) for k,v in repo_files.iteritems() },
-		"media": list_media()
 	}
 
 def rename(old_author, new_author):

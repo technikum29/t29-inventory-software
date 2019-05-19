@@ -34,15 +34,21 @@
 				technikum29<br/>Inventory Viewer and Editor
 			</router-link>
 			<div class="ui simple dropdown item">
-				Dropdown <i class="dropdown icon"></i>
+				View <i class="dropdown icon"></i>
 				<div class="menu">
-					<router-link to="/" class="item">Overview</router-link>
-					<a class="item" href="#">Tabluar view</a>
-					<a class="item" href="#">Export</a>
-					<div class="divider"></div>
-					<div class="header">Editing</div>
-					<router-link to="/commit">Commit</router-link>
-					<router-link to="/schema">Schema</router-link>
+					<router-link to="/" class="item">Illustrated list</router-link>
+					<a class="item" href="#">Inventory table</a>
+					<a class="item" href="#">Export/Download</a>
+					<!--<div class="divider"></div>
+					<div class="header">Editing</div>-->
+				</div>
+			</div>
+			<div class="ui simple dropdown item">Edit
+				<i class="dropdown icon"></i>
+				<div class="menu">
+					<router-link to="/commit" class="item">Commit</router-link>
+					<router-link to="/schema" class="item">Schema</router-link>
+					<a class="item" href="#">Import</a>
 				</div>
 			</div>
 			<div class="ui category search item">
@@ -52,9 +58,6 @@
 				</div>
 				<div class="results"></div>
 			</div>
-			<a class="browse item">Edit
-				<i class="dropdown icon"></i>
-			</a>
 			
 			<a class="item connection">{{ connection }}</a>
 		</div>
@@ -79,8 +82,11 @@
 			</div>
 		</div>
 	
-		<!-- Component matched by the router... -->
-		<router-view></router-view>
+	
+		<transition :name="app.routing_transition_name">
+			<!-- Component matched by the router... -->
+			<router-view></router-view>
+		</transition>
 	</div><!--/#content-->
 </div><!--/#app -->
 
@@ -99,15 +105,45 @@
 
 <script type="text/x-template" id="inventory-list">
   <div class="inventory-list">
-    <h1 class="ui header">Inventory List</h1>
-    <div class="ui link cards six column grid">
-	<div class="column" v-for="(inv,index) in inventory" v-bind:key="inv[app.id_field]">
+    <h1 class="ui header">Illustrated Inventory</h1>
+    
+    <div class="ui toggle checkbox">
+	<input type="checkbox" name="public" v-model="view.hide_without_images">
+	<label>Hide inventory lacking photos</label>
+    </div>
+    <button class="ui toggle button" v-bind:class="{ active: !view.hide_without_images }"
+	@click="view.hide_without_images =! view.hide_without_images">Show inventory lacking photos</button>
+    <button class="ui toggle button" v-bind:class="{ active: view.tabular }"
+	@click="view.tabular =! view.tabular"><i class="icon user"></i> Tabular view</button>
+
+	
+    <div v-if="view.tabular">
+	<table class="ui celled table">
+		<thead><tr>
+			<th v-for="col in view.cols">{{ col }}</th>
+		</tr></thead>
+		<tbody>
+			<tr v-for="(inv,index) in inventory"
+			    v-if="!view.hide_without_images || url_for_teaser[index]">
+				<td v-for="col in view.cols">
+					<!-- {{ inv[col] }} -->
+					<field-display v-bind:inv="inv" :field="col" />
+				</td>
+			</tr>
+		</tbody>
+	</table>
+    </div>
+    <div v-else class="ui link cards six column grid">
+	<div class="column" v-for="(inv,index) in inventory"
+		v-if="!view.hide_without_images || url_for_teaser[index]">
+		<!-- do not bind for performance; v-bind:key="inv[app.id_field]"> -->
+		
 		<router-link :to="{name:'detail', params:{id:inv[app.id_field]}}"  class="ui fluid card">
 			<div class="image" v-if="url_for_teaser[index]">
 				<img :src="url_for_teaser[index]">
 			</div>
 			<div class="image" v-else>
-				<img src="/t29-inventory-assets/placeholder.svg">
+				<img :src="app.paths.media_path + app.paths.media_config.square_thumbnail_placeholder">
 			</div>
 			<div class="content">
 				<div class="header">{{ inv[app.id_field] }}</div>
@@ -129,7 +165,7 @@
 		<div class="ui grid">
 			<div class="eight wide column">
 				<div class="ui two stackable cards">
-					<div class="card" v-for="(image, hash) in media" v-bind:key="media.hash">
+					<div class="card" v-for="image in media" v-bind:key="media.image">
 						<div class="blurring dimmable image">
 							<div class="ui dimmer">
 								<div class="content">
@@ -142,14 +178,14 @@
 										   Or
 										</div>
 										<div class="ui labeled inverted input">
-											<label :for="'media-label'+hash" class="ui label">Rename</label>
-											<input v-model="media[hash]" :id="'media-label'+hash">
+											<label class="ui label">Rename or so</label>
+											<input v-model="media.image">
 										</div>
 									</div>
 								</div>
 							</div>
 							
-							<img :src="url_for_media(hash)" :alt="image">
+							<img :src="image" :alt="image">
 						</div>
 					</div>
 				</div>
