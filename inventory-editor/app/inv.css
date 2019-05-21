@@ -81,6 +81,14 @@ textarea.pseudo {
 .inventory-detail .upload-box { box-shadow: none; } /* wont work due to -{moz,webkit,...}-box-shadow */
 .inventory-detail .upload-box > div { height: 100%; }
 
+.inventory-detail table.definition td { vertical-align: top; }
+
+.inventory-detail table.definition .secondary {
+	font-weight: normal;
+	color: #333;
+	font-size: 90%;
+}
+
 /** old stuff **/
 
 #header {

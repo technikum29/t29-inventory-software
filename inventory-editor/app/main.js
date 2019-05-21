@@ -30,7 +30,8 @@ var app = {
 		}
 	},
 	global_view_settings: {
-		show_editing_infobox: false
+		show_editing_infobox: false,
+		search_box_content: ''
 	},
 
 	// how frequently to compute json patch updates
@@ -95,6 +96,8 @@ unique = lst => [...new Set(lst)].sort()
 uniqueFieldValues = (obj, key) => unique($.map(obj, el => el[key]))
 // Get all values from a certain field
 fieldValues = (obj, key) => withoutNones($.map(obj, el => el[key]))
+// the safest method
+deepCopy = obj => JSON.parse(JSON.stringify(obj));
 
 
 var setup_uplink = function() {
@@ -113,13 +116,16 @@ var setup_uplink = function() {
 	app.websocket.onopen = evt => app.connection = "connected"
 	app.websocket.onclose = evt => app.connection = "closed"
 	
+	app.base_files = deepCopy(app.state.files)
+	app.base_patch = () => jsonpatch.compare(app.base_files, app.state.files) // maybe interesting for commit review
+	
 	// Setup jsonpatch observation of inventory object.
 	// Could also define a callback here.
 	var patch_observer = jsonpatch.observe(app.state);
 	
 	app.send = function() {
 		// JSONPatch will show all *pending* changes, i.e. not relative to root document
-		var patch = jsonpatch.generate(patch_observer);
+		var patch = jsonpatch.generate(patch_observer)
 		app.patch_size += patch.length;
 		app.websocket.send(JSON.stringify(patch));
 	};
@@ -132,8 +138,25 @@ var setup_uplink = function() {
 	}
 };
 
-var setup_components = function() {
-	// Register a couple of global Vue components
+app.human_readable_patch = function() {
+	return app.base_patch().map(patch => {
+		var parts = withoutNones(patch.path.split("/"))
+		var ret = {
+			part: parts[0],
+			op: patch.op,
+			op_verb: { 'add':'adding', 'replace':'replacing', 'remove':'removing'}[patch.op],
+			value: patch.value,
+		}
+		var inv = (ret.part == "inventory" || ret.part == "media") ?
+			  app.base_files.inventory[ parseInt(parts[1]) ] : null;
+		ret[app.id_field] = inv ? inv[app.id_field] : null
+		ret.path = parts[2]
+		return ret
+	})
+}
+
+var setup_vue = function() {
+	// First, register a couple of global Vue components
 	
 	// Hey, the global mixin. To support the crappy strategy of a global object without vuex
 	Vue.mixin({
@@ -177,6 +200,9 @@ var setup_components = function() {
 			component:  Vue.component("InventoryDetail", {
 				template: '#inventory-detail',
 				props: ["inv"],         // the inventory record looked at
+				data: function() {
+					return { schema: app.state.files.schema } // shorthand
+				},
 				computed: {
 					media: function() { return media_urls_for_id(this.inv[app.id_field]) },
 				},
@@ -211,7 +237,10 @@ var setup_components = function() {
 				data: function() {
 					return { state: app.state }
 				},
-				methods: { commit: app.commit }
+				methods: {
+					submit: app.commit,
+					patch: app.human_readable_patch
+				},
 			})
 		},
 		{
@@ -309,6 +338,34 @@ var setup_components = function() {
 
 		}
 	});
+	
+	var router = new VueRouter({
+		routes: [].concat(
+			[ { path: app.url_prefix + "/", redirect: app.url_prefix +"/inv" } ],
+			app.views,
+			[ { path: '*' } ]
+		),
+		base: app.url_prefix
+		
+	});
+	
+	// A Vue in order to make app.state reactive across all routes
+	//  and also in order to deal with changing data
+	var state_vue = new Vue({
+		data: app,
+		watch: {
+			state: { /* "state" property in the Vue data */ 
+				handler: debounce(app.send, app.debouncing_time_ms),
+				deep: true,
+				//immediate: true // called immediately after start of observation
+			}
+		},	
+	});
+	
+	var app_vue = new Vue({ 
+		router: router,
+		data: app
+	}).$mount('#app');
 };
 
 var inventory_by_id = function(route) {
@@ -338,40 +395,6 @@ var teaser_url_for_id = function(invnr) {
 		return imgs[0] + app.paths.media_config.square_thumbnail_suffix
 }
 
-var setup_vue_router = function() {
-	setup_components();
-	
-	var routes = [].concat(
-		[ { path: app.url_prefix + "/", redirect: app.url_prefix +"/inv" } ],
-		app.views,
-		[ { path: '*' } ]
-	);
-	
-	var router = new VueRouter({
-		routes,
-		base: app.url_prefix
-		
-	});
-	
-	// A Vue in order to make app.state reactive across all routes
-	//  and also in order to deal with changing data
-	var state_vue = new Vue({
-		data: app,
-		watch: {
-			state: { /* "state" property in the Vue data */ 
-				handler: debounce(app.send, app.debouncing_time_ms),
-				deep: true,
-				//immediate: true // called immediately after start of observation
-			}
-		},	
-	});
-	
-	var app_vue = new Vue({ 
-		router: router,
-		data: app
-	}).$mount('#app');
-};
-
 
 app.main = function() {
 	load2inv = x => fetch(app.url_prefix + "/" + x).then(res => res.json()).then(res => app[x] = res)
@@ -379,9 +402,9 @@ app.main = function() {
 	Promise.all(["paths","files","author"].map(load2inv)).then(docs => {
 		// Now that we have an author Cookie, load the state
 		load2inv("state").then(()=>{
-			$("body").removeClass("loading").addClass("loaded")
 			setup_uplink()
-			setup_vue_router()
+			setup_vue()
+			$("body").removeClass("loading").addClass("loaded")
 		})
 		$("#loader").text("Loading even more...")
 	}, /*failure*/()=>{

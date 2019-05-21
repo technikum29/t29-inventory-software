@@ -27,8 +27,7 @@
 </div>
 <div id="app"><!-- vue requires a global non-body wrapper -->
 
-	<div class="ui fixed menu">
-		<div class="ui container">
+	<div class="ui top fixed stackable menu">
 			<router-link to="/" class="header item">
 				<img class="logo" src="t29-logomarke.svg" style="margin-right:1em">
 				technikum29<br/>Inventory Viewer and Editor
@@ -51,16 +50,30 @@
 					<a class="item" href="#">Import</a>
 				</div>
 			</div>
+			
+			<a class="item"><i class="arrow left icon"></i></a>
 			<div class="ui category search item">
 				<div class="ui transparent icon input">
-					<input class="prompt" type="text" placeholder="Search inventory...">
+					<input class="prompt" type="text" :value="global_view_settings.search_box_content" placeholder="Search inventory...">
 					<i class="search link icon"></i>
 				</div>
 				<div class="results"></div>
 			</div>
+			<a class="item"><i class="arrow right icon"></i></a>
 			
-			<a class="item connection" @click="app.global_view_settings.show_editing_infobox =! app.global_view_settings.show_editing_infobox">{{ connection }}</a>
-		</div>
+			<div class="right menu">
+				<a class="item connection" @click="app.global_view_settings.show_editing_infobox =! app.global_view_settings.show_editing_infobox">{{ connection }}</a>
+				<div class="ui dropdown item">
+				Weblinks <i class="dropdown icon"></i>
+					<div class="menu">
+						<div class="divider"></div>
+						<div class="header">Public ressources</div>
+						<a class="item" href="https://www.technikum29.de/">Official website</a>
+						<a class="item" href="https://github.com/technikum29">Github</a>
+						<a class="item" href="http://www.technikum29.de/labs/">Laboraties</a>
+					</div>
+				</div>
+			</div>
 	</div>
 	
 	<div id="content">
@@ -107,15 +120,17 @@
   <div class="inventory-list">
     <h1 class="ui header">Illustrated Inventory</h1>
     
-    <div class="ui toggle checkbox">
-	<input type="checkbox" name="public" v-model="view.hide_without_images">
-	<label>Hide inventory lacking photos</label>
-    </div>
-    <button class="ui toggle button" v-bind:class="{ active: !view.hide_without_images }"
-	@click="view.hide_without_images =! view.hide_without_images">Show inventory lacking photos</button>
-    <button class="ui toggle button" v-bind:class="{ active: view.tabular }"
-	@click="view.tabular =! view.tabular"><i class="icon user"></i> Tabular view</button>
+    <p>
+	<!--<div class="ui toggle checkbox">
+		<input type="checkbox" name="public" v-model="view.hide_without_images">
+		<label>Hide inventory lacking photos</label>
+	</div>-->
+	<button class="ui toggle labeled icon button" v-bind:class="{ active: !view.hide_without_images }"
+		@click="view.hide_without_images =! view.hide_without_images"><i class="icon image"></i> Show inventory lacking photos</button>
+	<button class="ui toggle labeled icon button" v-bind:class="{ active: view.tabular }"
+		@click="view.tabular =! view.tabular"><i class="icon table"></i> Tabular view</button>
 
+    </p>
 	
     <div v-if="view.tabular">
 	<table class="ui celled table">
@@ -126,8 +141,9 @@
 			<tr v-for="(inv,index) in inventory"
 			    v-if="!view.hide_without_images || url_for_teaser[index]">
 				<td v-for="col in view.cols">
-					<!-- {{ inv[col] }} -->
-					<field-display v-bind:inv="inv" :field="col" />
+					{{ inv[col] }}
+					<!-- this is slow as hell: -->
+					<!-- <field-display v-bind:inv="inv" :field="col" /> -->
 				</td>
 			</tr>
 		</tbody>
@@ -237,7 +253,11 @@
 				</thead>
 				<tbody>
 					<tr v-for="(v,k) in inv" v-bind:key="k">
-						<td>{{ k }}</td>
+						<td>
+							{{ k }}
+							<div v-if="schema.properties[k]" class="secondary">{{ schema.properties[k].title }}</div>
+							<div v-else class="secondary warn">(neues Attribut)</div>
+						</td>
 						<td class="ui fluid">
 							<field-display v-bind:inv="inv" :field="k" alwaysEditing />
 							<!--<input v-model="inv[k]" class="pseudo">-->
@@ -261,14 +281,56 @@
 
 <script type="text/x-template" id="commit-view">
   <div class="commit-view">
-    <h1 class="ui header">Commit your changes</h1>
-    <p>You are currently known as <input type="text" v-model="state.author">.
-    Please shortly describe your changes:</p>
-    
-    <textarea name="message" placeholder="do so" v-model="state.commit_msg"></textarea>
-    
-    <button v-on:click="commit">Submit</button>
-  </div>
+    <h1 class="ui header">History and future of the database</h1>
+    <div class="ui grid">
+	<div class="three column row">
+		<div class="column">
+			<div class="ui segment">
+				<h2 class="ui header">
+					Submit your changes
+					<div class="sub header">Release your changes to the wild</div>
+				</h2>
+				
+				<div class="ui form">
+					<div class="field">
+						<label>Your name</label>
+						<input type="text" v-model="state.author" />
+					</div>
+					<div class="field">
+						<label>Commit message (short description of changes)</label>
+						<textarea name="message" placeholder="Please write a sentence or two..." v-model="state.commit_msg"></textarea>
+					</div>
+
+					<div @click="submit" class="ui submit labeled icon primary button">
+						<i class="save icon"></i> Submit
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="column">
+			<div class="ui segment">
+				<h2>Overview of your changes</h2>
+				<div class="ui list">
+					<div class="item" v-for="rec in patch()">
+						<i class="pencil alternate icon"></i>
+						Editing <strong>{{ rec.part}}</strong>
+						<template v-if="rec.inv">{{ rec.inv[app.id_field] }}</template>,
+						<strong>{{ rec.op_verb }}</strong>
+						field {{rec.path}}
+						<div class="description" v-if="rec.op == 'replace'">now <em>{{rec.value}}</em></div>
+						<div class="description" v-if="rec.op == 'add'">new value <em>{{rec.value}}</em></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="column">
+			<div class="ui segment">
+				Git history here
+			</div>
+		</div>
+	</div>
+    </div><!-- grid -->
+  </div><!-- commit-view -->
 </script>
 
 <script type="text/x-template" id="schema-editor">
