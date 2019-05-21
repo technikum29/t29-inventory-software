@@ -29,7 +29,6 @@ body.loaded #app, body.loading #loader { opacity: 1; }
 }
 
 #edit-infobox {
-	margin-top: -2%;
 	margin-bottom: 2%;
 }
 
@@ -62,6 +61,25 @@ textarea.pseudo {
 .pseudo:hover, .pseudo:focus {
 	background-color: #eee;
 }
+
+.pseudo-editable:hover {
+	background-color: #eee;
+	box-shadow: 0 0 0 .4em #eee;
+	cursor: text;
+}
+
+.field-display.editing .editor { display: inline; }
+.field-display.editing .viewer { display: none; }
+
+.field-display.viewing .editor { display: none; }
+.field-display.viewing .viewer { display: inline; }
+
+/* Specializations */
+.field-display.viewing.multiline .viewer { display: block; }
+
+
+.inventory-detail .upload-box { box-shadow: none; } /* wont work due to -{moz,webkit,...}-box-shadow */
+.inventory-detail .upload-box > div { height: 100%; }
 
 /** old stuff **/
 

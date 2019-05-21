@@ -29,6 +29,9 @@ var app = {
 			cols: [ "Inv-Nr.", "Objekt", "Beschreibung", "Ort" ]
 		}
 	},
+	global_view_settings: {
+		show_editing_infobox: false
+	},
 
 	// how frequently to compute json patch updates
 	debouncing_time_ms: 200,
@@ -86,8 +89,10 @@ filterObj = (obj, check) => Object.keys(obj).reduce((r,e) => { if(check(e,obj[e]
 escapeRegExp = string => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 // Filter out undedined/Nones/False or empty values
 withoutNones = lst => lst.filter(e=>e)
+// Unique elements in list (ES6)
+unique = lst => [...new Set(lst)].sort()
 // Get all unique values for a certain field
-uniqueFieldValues = (obj, key) => withoutNones($.unique($.map(obj, el => el[key])))
+uniqueFieldValues = (obj, key) => unique($.map(obj, el => el[key]))
 // Get all values from a certain field
 fieldValues = (obj, key) => withoutNones($.map(obj, el => el[key]))
 
@@ -136,10 +141,10 @@ var setup_components = function() {
 		
 		// effectively applies to app.views components only, since they are addressed
 		// by the router
-		beforeRouteUpdate (to, from, next) {
+		beforeRouteUpdate: function(to, from, next) {
 			const toDepth = to.path.split('/').length
 			const fromDepth = from.path.split('/').length
-			this.routing_transition_name = toDepth < fromDepth ? 'slide-right' : 'slide-left'
+			this.app.routing_transition_name = toDepth < fromDepth ? 'slide-right' : 'slide-left'
 			next()
 		},
 	});
@@ -178,6 +183,23 @@ var setup_components = function() {
 				mounted: function() {
 					// Nice dimming effect of Semantic-UI. Not important, thought.
 					$('.cards .image').dimmer({ on: 'hover' });
+				},
+				methods: {
+					sort_media: function(current_idx, offset) {
+						var media = app.state.files.media[this.inv[app.id_field]];
+						var new_idx = current_idx + offset;
+						
+						if(new_idx<0) new_idx = media.length-1; // rotate
+						if(new_idx>=media.length) new_idx=0;
+
+						var intermediate_media_new_idx = media[new_idx]; 
+						Vue.set(this.app.state.files.media[this.inv[app.id_field]], new_idx, media[current_idx])
+						Vue.set(this.app.state.files.media[this.inv[app.id_field]], current_idx, intermediate_media_new_idx)
+					},
+			     
+					remove_media: function(idx) {
+						this.app.state.files.media[this.inv[app.id_field]].splice(idx, 1)
+					}
 				}
 			})
 		},
@@ -199,7 +221,7 @@ var setup_components = function() {
 			component: Vue.component("SchemaEditor", {
 				template: "#schema-editor",
 				data: function() {
-					return { schema: app.files.schema }
+					return { schema: app.state.files.schema }
 				},
 				computed: {
 					uniqueEditors: function() { return uniqueFieldValues(this.schema.properties, "editor"); }
@@ -223,10 +245,15 @@ var setup_components = function() {
 	// This is a real "widget" component and not supposed to be adressable via routers.
 	Vue.component("FieldDisplay", {
 		template: "#field-display",
-		props: [
-			"inv",         // The inventory record (object)
-			"field",       // The name of the field to display (string)
-		],
+		data: function() {
+			return { editing: false } // wether currently editing or not
+		},
+		props: {
+			inv: { type: Object, required: true },         // The inventory record (object)
+			field: { type: String, required: true },       // The name of the field to display (string)
+			alwaysEditing: { type: Boolean, default: false }, // Always show form fields
+			inputClass: { type: String, required: false }       // Some additional property for the form field
+		},
 		computed: {
 			schema:
 				function() { return app.state.files.schema.properties[this.field] || {
@@ -235,16 +262,51 @@ var setup_components = function() {
 					is_default: true
 				}; },
 
+			// TBD: Move to $root.
+
 			// computing this for every component is quite slow, especially if the page
 			// has many of these componens.
 			uniqueFieldValues:
-				function() { return uniqueFieldValues(app.state.files.inventory, this.field); }
+				function() {
+					var relevantInv = app.state.files.inventory;
+					if(this.schema.editor_flags && this.schema.editor_flags.restrict_options_by) {
+						// Filter to subset
+						relevantInv = relevantInv.filter(inv =>
+							inv[this.schema.editor_flags.restrict_options_by] == this.inv[this.schema.editor_flags.restrict_options_by])
+					}
+					return uniqueFieldValues(relevantInv, this.field);
+				},
+
+			wrapperClass: function() { /* class attributes for view-only part */
+				return {
+					//display: isEditing() ? 'none' : 
+					//(this.schema.editor=="multiline"?"block":'inline')
+					
+					editing: this.isEditing(),
+					viewing: !this.isEditing(),
+					[this.schema.editor]: true // ES6 syntax
+				}
+			}
+		},
+		methods: { // shorthands for usages in templates
+			enableEdit: function() {
+				this.editing = true;
+				// neither one works. Don't know why.
+				$(this.$el).find(".editor").first().focus()
+				this.$el.getElementsByClassName("editor")[0].firstChild.focus()
+			},
+			stopEdit: function() { this.editing = false; },
+			isEditing:  function() { return this.editing || this.alwaysEditing; }
 		},
 		mounted: function() {
-			// This is super slow.
+			var that = this;
 			
 			// Semantic-UI allways allow additions to dropdowns
-			// $('.ui.dropdown').dropdown({ allowAdditions: true }); // -> try differently instead
+			$('.ui.dropdown').dropdown({
+				allowAdditions: true,
+				onBlur: function() { that.editing = false;  }
+			}); // -> try differently instead
+
 		}
 	});
 };

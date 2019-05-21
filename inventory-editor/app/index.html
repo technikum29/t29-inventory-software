@@ -59,13 +59,13 @@
 				<div class="results"></div>
 			</div>
 			
-			<a class="item connection">{{ connection }}</a>
+			<a class="item connection" @click="app.global_view_settings.show_editing_infobox =! app.global_view_settings.show_editing_infobox">{{ connection }}</a>
 		</div>
 	</div>
 	
 	<div id="content">
-		<div id="editing-infobox">
-			<h3 class="ui green top attached header">Editing <i class="ui close icon"></i></h3>
+		<div id="editing-infobox" v-if="app.global_view_settings.show_editing_infobox">
+			<h3 class="ui green top attached header">Editing <i class="ui close icon" @click="app.global_view_settings.show_editing_infobox = !app.global_view_settings.show_editing_infobox"></i></h3>
 			<div class="ui attached segment container" id="edit-infobox">
 				<p>This page is a <strong>editable by anyone</strong>. There is an underlying Git version repository which
 				ensures ever change can be tracked and rolled back, if neccessary.
@@ -165,27 +165,54 @@
 		<div class="ui grid">
 			<div class="eight wide column">
 				<div class="ui two stackable cards">
-					<div class="card" v-for="image in media" v-bind:key="media.image">
+					<div class="card" v-for="(image, index) in media" v-bind:key="media.index">
 						<div class="blurring dimmable image">
 							<div class="ui dimmer">
 								<div class="content">
 									<div class="center">
-										<button class="ui basic inverted primary button">
+										<button class="ui basic inverted green basic button">
 											<i class="icon expand"></i>
 											Enlarge
 										</button>
 										<div class="ui horizontal inverted divider">
 										   Or
 										</div>
-										<div class="ui labeled inverted input">
-											<label class="ui label">Rename or so</label>
-											<input v-model="media.image">
-										</div>
+										<button class="ui labeled icon inverted blue basic button" @click="sort_media(index, -1)">
+											<i class="left arrow icon"></i>
+											Move left
+										</button>
+										<button class="ui right labeled icon inverted blue basic button" @click="sort_media(index, +1)">
+											<i class="right arrow icon"></i>
+											Move right
+										</button>
+										<br/>
+										<button style="margin-top:1em" class="ui right labeled inverted red basic icon button" @click="remove_media(index)">
+											<i class="trash alternate outline icon"></i>
+											Remove
+										</button>
 									</div>
 								</div>
 							</div>
 							
 							<img :src="image" :alt="image">
+						</div>
+					</div><!-- // vcard -->
+					
+					<div class="card upload-box">
+						<div class="ui placeholder segment">
+							<div class="middle aligned column">
+							<div class="ui big button">
+								<i class="add icon"></i>
+								Assign images
+							</div>
+							<div class="ui horizontal divider">
+							Or
+							</div>
+							<div class="ui big button">
+								<i class="upload icon"></i>
+								Upload new images
+							</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -193,25 +220,28 @@
 			<div class="eight wide column">
 				<h1 class="ui header">
 					<span class="ui massive label">{{ inv[app.id_field] }}</span> 
-					<input v-model="inv.Objekt" class="pseudo"><!-- {{ inv.Objekt }}-->
-					<sup><i class="icon info"></i></sup>
+					<field-display v-bind:inv="inv" field="Objekt" />
+					<!--<sup><i class="icon info"></i></sup>-->
 				</h1>
 				
-				<field-display v-bind:inv="inv" field="Beschreibung" />
+				<p class="ui form"><field-display v-bind:inv="inv" field="Beschreibung" /></p>
 				
 				<h2 class="ui dividing header">Location</h2>
 				Located in building <field-display v-bind:inv="inv" field="Ort" />
 				in room or area <field-display v-bind:inv="inv" field="Bereich" />
 				
 				<h2 class="ui dividing header">All fields</h2>
-				<table class="ui definition table">
+				<table class="ui definition table form">
 				<thead>
 					<tr><th>key</th><th>value</th></tr>
 				</thead>
 				<tbody>
 					<tr v-for="(v,k) in inv" v-bind:key="k">
 						<td>{{ k }}</td>
-						<td><input v-model="inv[k]" class="pseudo"></td>
+						<td class="ui fluid">
+							<field-display v-bind:inv="inv" :field="k" alwaysEditing />
+							<!--<input v-model="inv[k]" class="pseudo">-->
+						</td>
 					</tr>
 					<tr>
 						<td><input placeholder="New field..."></td>
@@ -247,6 +277,7 @@
     <p>In the schema editor, you can edit the field descriptions and ways how they are displayed
     in this very inventory editor.</p>
 
+    <div class="ui link cards eight column grid">
     <div class="ui card" v-for="(field, fieldname) in schema.properties" v-bind:key="schema.properties.fieldname">
 	<div class="content">
 		<div class="right floated">
@@ -306,31 +337,40 @@
 
 	</div><!-- content -->
       </div><!-- ui card -->
+      </div><!-- columns -->
   </div>
 </script>
 
 <script type="text/x-template" id="field-display">
-	<span class="field-display">
-		<input v-if="schema.editor=='single-line'" class="pseudo" v-model="inv[field]" />
-	
-		<textarea v-else-if="schema.editor=='multiline'" class="pseudo" v-model="inv[field]"></textarea>
-		
-		<select v-else-if="schema.editor=='select'" class="ui search compact dropdown" v-model="inv[field]">
-			<option
-				v-for="opt in uniqueFieldValues"
-				:value="opt"
-				v-bind:key="uniqueFieldValues.opt"
-			>{{opt}}</option>
-		</select>
+	<span class="field-display" :class="wrapperClass">
+		<!-- Work with CSS display in order to get proper jQuery initialization of <select5> -->
+		<span v-if="schema.immutable" title="Immutable attribute">{{ inv[field] }}</span>
+		<span class="editor">
+			<input v-if="schema.editor=='single-line'" :class="inputClass" @blur="stopEdit" v-model="inv[field]" />
+				
+			<textarea v-else-if="schema.editor=='multiline'" :class="inputClass" v-model="inv[field]"></textarea>
+			
+			<!-- compact -->
+			<select v-else-if="schema.editor=='select'" class="ui search dropdown" :class="inputClass" v-model="inv[field]">
+				<option
+					v-for="opt in uniqueFieldValues"
+					:value="opt"
+					v-bind:key="uniqueFieldValues.opt"
+				>{{opt}}</option>
+			</select>
 
-		<div v-else class="ui error message">
-			<div class="header">Field not editable</div>
-			Field type <strong>{{schema.editor}}</strong> for field <strong>{{field}}</strong>
-			    not implmented. Please <router-link to="/schema">edit the schema</router-link>.
-		</div>
-		
-		<div v-if="schema.is_default">
-			(missing schema)
-		</div>
+			<div v-else class="ui error message">
+				<div class="header">Field not editable</div>
+				Field type <strong>{{schema.editor}}</strong> for field <strong>{{field}}</strong>
+				not implmented. Please <router-link to="/schema">edit the schema</router-link>.
+			</div>
+			
+			<div v-if="schema.is_default">
+				(missing schema)
+			</div>
+		</span>
+		<span @click="enableEdit" @focus="enableEdit" class="pseudo-editable viewer">
+			{{ inv[field] }}
+		</span>
 	</span>
 </script>
