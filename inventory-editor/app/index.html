@@ -18,16 +18,17 @@
  <script src="main.js" type="text/javascript"></script>
  
  <!-- for the time being, test these -->
- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
- <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
+ <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css" crossorigin="anonymous">
+ <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js" crossorigin="anonymous"></script>
 <body>
-<div id="loader">
+<div id="no_vue">
 	This is a JavaScript single page application.
 	If you read this text, it is not working.
 </div>
-<div id="app"><!-- vue requires a global non-body wrapper -->
+<!-- vue requires a global non-body wrapper -->
+<div id="app"  :class="[{ loaded: app.loaded }, { loading: !app.loaded }, app.view_state ]">
 
-	<div class="ui top fixed stackable menu">
+	<div class="ui top fixed stackable menu" id="top-menu">
 			<router-link to="/" class="header item">
 				<img class="logo" src="t29-logomarke.svg" style="margin-right:1em">
 				technikum29<br/>Inventory Viewer and Editor
@@ -35,26 +36,25 @@
 			<div class="ui simple dropdown item">
 				View <i class="dropdown icon"></i>
 				<div class="menu">
-					<router-link to="/" class="item">Illustrated list</router-link>
-					<a class="item" href="#">Inventory table</a>
-					<a class="item" href="#">Export/Download</a>
-					<!--<div class="divider"></div>
-					<div class="header">Editing</div>-->
+					<router-link to="/" class="item">Inventory</router-link>
+					<router-link to="/schema" class="item">Fields</router-link>
+					<router-link to="/media" class="item">Media</router-link>
+					<div class="divider"></div>
+					<router-link to="/export" class="item">Download (Export)</router-link>
 				</div>
 			</div>
 			<div class="ui simple dropdown item">Edit
 				<i class="dropdown icon"></i>
 				<div class="menu">
 					<router-link to="/commit" class="item">Commit</router-link>
-					<router-link to="/schema" class="item">Schema</router-link>
-					<a class="item" href="#">Import</a>
+					<a class="disabled item" href="#">Import</a>
 				</div>
 			</div>
 			
 			<a class="item"><i class="arrow left icon"></i></a>
 			<div class="ui category search item">
 				<div class="ui transparent icon input">
-					<input class="prompt" type="text" :value="global_view_settings.search_box_content" placeholder="Search inventory...">
+					<input class="prompt" type="text" :value="app.global_view_settings.search_box_content" placeholder="Search inventory...">
 					<i class="search link icon"></i>
 				</div>
 				<div class="results"></div>
@@ -63,42 +63,110 @@
 			
 			<div class="right menu">
 				<a class="item connection" @click="app.global_view_settings.show_editing_infobox =! app.global_view_settings.show_editing_infobox">{{ connection }}</a>
-				<div class="ui dropdown item">
-				Weblinks <i class="dropdown icon"></i>
+				
+				<div class="ui simple dropdown item">Hilfe
+					<i class="dropdown icon"></i>
 					<div class="menu">
+						<a class="item" @click="app.global_view_settings.show_welcome_infobox = true">
+						  Einführung
+						</a>
 						<div class="divider"></div>
-						<div class="header">Public ressources</div>
-						<a class="item" href="https://www.technikum29.de/">Official website</a>
+						<div class="header">Weiterführend</div>
+						<a class="item" href="https://www.technikum29.de/">Museumswebsite</a>
 						<a class="item" href="https://github.com/technikum29">Github</a>
 						<a class="item" href="http://www.technikum29.de/labs/">Laboraties</a>
 					</div>
 				</div>
 			</div>
+			
+			<div class="hamburger item">
+			    <span class="hamburger-bun"></span>
+			    <span class="hamburger-patty"></span>
+			    <span class="hamburger-bun"></span>
+			</div>
 	</div>
 	
 	<div id="content">
-		<div id="editing-infobox" v-if="app.global_view_settings.show_editing_infobox">
-			<h3 class="ui green top attached header">Editing <i class="ui close icon" @click="app.global_view_settings.show_editing_infobox = !app.global_view_settings.show_editing_infobox"></i></h3>
-			<div class="ui attached segment container" id="edit-infobox">
-				<p>This page is a <strong>editable by anyone</strong>. There is an underlying Git version repository which
-				ensures ever change can be tracked and rolled back, if neccessary.
-				Furthermore, this web application can be used online as well as offline.
-				Currently, <span class="ui teal horizontal label">Commit <span class="detail">{{ state.head_commit.id.substring(0,6) }}</span></span>
-				is loaded, originating from {{ state.head_commit.date }}. This commit was last edited by <strong>{{ state.head_commit.author }}</strong>.
-				<p>Your edits are currently tracked with the username
-					<span class="ui left icon input mini">
-						<input type="text" v-model="state.author">.
-						<i class="users icon"></i>
-					</span>. You can change your username any time.
-				<router-link to="/commit" v-if="patch_size > 0" tag="button" class="ui primary button">Commit {{ patch_size }} changes</router-link>
+		<div id="welcome-infobox" class="infobox ui segments" v-if="app.global_view_settings.show_welcome_infobox">
+			<div class="ui blue top attached header segment">
+				<button class="ui basic icon button" style="float:right; border:none; box-shadow:none"
+					@click="app.global_view_settings.show_welcome_infobox = false">
+					<i class="ui close icon"></i>
+				</button>
+				<h3>Willkommen zur technikum29-Inventarauflistung</h3>
+			</div>
+			<div class="ui attached segment">
+				<p>
+				Diese Seite ist das Ergebnis der Bemühungen, die umfangreiche Sammlung des
+				<a href="http://technikum29.de">technikum29-Museums für Computer und Kommunikationstechnik</a>
+				zu inventarisieren. Dabei wurden über 1000
+				<a href="https://github.com/technikum29/t29-inventory-cards">Inventarmarken</a> verteilt, also
+				Klebemarken mit einer fortlaufenden Zahl. Zu jeder dieser Marken gibt es in dieser Darstellung
+				einen Eintrag mit <router-link to="/schema">Informationen zum Gegenstand</router-link>.
+				Ferner gibt es zu der Mehrzahl der Einträge bereits
+				ein oder mehrere <router-link to="/media">Fotos</router-link>.
 				</p>
+				<p>
+				Die Erfassung der vielen Außendepots des Museums ist eine Gemeinschaftsaufgabe. Daher kann
+				<em>jede Information</em> in der Datenbank bearbeitet werden, in dem man sie anklickt. So
+				können auch neue Fotos hochgeladen werden. Ein Login ist nicht nötig. Ferner ist es zur
+				Interoperabilität möglich, eine
+				<router-link to="/export">Inventartabelle herunterzuladen</router-link> sowie
+				<router-link to="/import">hochzuladen</router-link>.
+				</p>
+				
+				<button class="ui button primary" @click="app.global_view_settings.show_welcome_infobox = false">
+				  Stöbern beginnen
+				</button>
+			</div> 
+		</div>
+			
+		<div id="editing-infobox" class="infobox segments" v-if="app.global_view_settings.show_editing_infobox">
+			<h3 class="ui green top attached header segment">Editing the inventory database
+				<button class="ui basic icon button" style="float:right; border:none; box-shadow:none"
+					@click="app.global_view_settings.show_editing_infobox = !app.global_view_settings.show_editing_infobox">
+					<i class="ui close icon"></i>
+				</button>
+			</h3>
+			<div class="ui attached segment" id="edit-infobox">
+				<span v-if="Object.keys(app.working_copy).length">
+					<p>This database is a <strong>editable by anyone</strong>. There is an underlying
+					Git version repository which ensures ever change can be tracked and rolled back, if neccessary.
+					!-- Furthermore, this web application can be used online as well as offline. -->
+
+					Currently, <span class="ui teal horizontal label">Commit <span class="detail">{{ app.working_copy.head_commit.id.substring(0,6) }}</span></span>
+					is loaded, originating from {{ app.working_copy.head_commit.date }}.
+					This commit was last edited by <strong>{{ app.working_copy.head_commit.author }}</strong>.
+					
+					<p>Your edits are currently tracked with the username
+						<span class="ui left icon input mini">
+							<input type="text" v-model="app.working_copy.author">.
+							<i class="users icon"></i>
+						</span>. You can change your username any time.
+					<router-link to="/commit" v-if="patch_size > 0" tag="button" class="ui primary button">Commit {{ patch_size }} changes</router-link>
+					</p>
+				</span>
+				<span v-else>
+					Currently working in <strong>read-only mode</strong>, since no connection to the
+					git database can be made.
+				</span>
 			</div>
 		</div>
 	
+		<div class="messages" v-for="(msg,k) in app.messages"> 
+			<div class="ui message" :class="msg.type">
+				<i class="close icon" @click='$delete(app.messages, k)'></i>
+				<div class="header" v-html="msg.header"></div>
+				<p v-html="msg.body"></p>
+			</div>
+		</div>
 	
 		<transition :name="app.routing_transition_name">
 			<!-- Component matched by the router... -->
-			<router-view></router-view>
+			<router-view v-if="app.loaded"></router-view>
+			<div class="ui active centered" v-else>
+				<div class="ui text loader">Loading: {{ app.connection }}</div>
+			</div>
 		</transition>
 	</div><!--/#content-->
 </div><!--/#app -->
@@ -149,29 +217,28 @@
 		</tbody>
 	</table>
     </div>
-    <div v-else class="ui link cards six column grid">
-	<div class="column" v-for="(inv,index) in inventory"
+    <div v-else class="ui link stackable cards">
+	<router-link
+		:to="{name:'detail', params:{id:inv[app.id_field]}}"
+		class="ui fluid card inv-card"
+		v-for="(inv,index) in inventory"
 		v-if="!view.hide_without_images || url_for_teaser[index]">
 		<!-- do not bind for performance; v-bind:key="inv[app.id_field]"> -->
-		
-		<router-link :to="{name:'detail', params:{id:inv[app.id_field]}}"  class="ui fluid card">
-			<div class="image" v-if="url_for_teaser[index]">
-				<img :src="url_for_teaser[index]">
+	
+	
+		<div class="image">
+			<img :src="url_for_teaser[index] || placeholder">
+		</div>
+		<div class="content">
+			<div class="header">{{ inv[app.id_field] }}</div>
+			<div class="meta">
+				{{ inv.Objekt }}
 			</div>
-			<div class="image" v-else>
-				<img :src="app.paths.media_path + app.paths.media_config.square_thumbnail_placeholder">
+			<div class="description">
+				{{ inv.Beschreibung }}
 			</div>
-			<div class="content">
-				<div class="header">{{ inv[app.id_field] }}</div>
-				<div class="meta">
-					{{ inv.Objekt }}
-				</div>
-				<div class="description">
-					{{ inv.Beschreibung }}
-				</div>
-			</div>
-		</router-link>
-	</div>
+		</div>
+	</router-link>
      </div><!-- end of column grid -->
   </div>
 </script>
@@ -181,7 +248,7 @@
 		<div class="ui grid">
 			<div class="eight wide column">
 				<div class="ui two stackable cards">
-					<div class="card" v-for="(image, index) in media" v-bind:key="media.index">
+					<div class="card" v-for="(image, index) in thumbnails" v-bind:key="thumbnails.index">
 						<div class="blurring dimmable image">
 							<div class="ui dimmer">
 								<div class="content">
@@ -190,6 +257,18 @@
 											<i class="icon expand"></i>
 											Enlarge
 										</button>
+										<a :href="image"
+											target="download_media_window"
+											class="ui basic inverted green basic button">
+											<i class="icon window restore outline"></i>
+											Open thumbnail
+										</a>
+										<a :href="media[index]"
+											target="download_media_window"
+											class="ui basic inverted green basic button">
+											<i class="icon download"></i>
+											Download original
+										</a>
 										<div class="ui horizontal inverted divider">
 										   Or
 										</div>
@@ -242,9 +321,12 @@
 				
 				<p class="ui form"><field-display v-bind:inv="inv" field="Beschreibung" /></p>
 				
+				<!-- looks ugly -->
+				<!--
 				<h2 class="ui dividing header">Location</h2>
 				Located in building <field-display v-bind:inv="inv" field="Ort" />
 				in room or area <field-display v-bind:inv="inv" field="Bereich" />
+				-->
 				
 				<h2 class="ui dividing header">All fields</h2>
 				<table class="ui definition table form">
@@ -256,7 +338,7 @@
 						<td>
 							{{ k }}
 							<div v-if="schema.properties[k]" class="secondary">{{ schema.properties[k].title }}</div>
-							<div v-else class="secondary warn">(neues Attribut)</div>
+							<div v-else class="secondary warn">(<em>neues Attribut</em>)</div>
 						</td>
 						<td class="ui fluid">
 							<field-display v-bind:inv="inv" :field="k" alwaysEditing />
@@ -279,6 +361,37 @@
   </div>
 </script>
 
+<script type="text/x-template" id="media-list">
+  <div class="media-list">
+	<h1 class="ui header">List of the inventory media (photos)</h1>
+	<p>This page lists all media and their associated inventory. That's
+	   a reverse list of the usual inventory display (which shows all media related
+	   to this inventory number).
+	</p>
+	<ul>
+	  <li v-for="(invs,fn) in media">
+	    {{ fn }}: {{ invs }}
+	  </li>
+	</ul>
+  </div>
+</script>
+
+<script type="text/x-template" id="export-view">
+  <div class="export-view">
+    <h1 class="ui header">Download/export the inventory database</h1>
+    <p>Download/view the particular JSON files as they are on the server:</p>
+    <ul>
+      <li v-for="(links,key) in file_links"><a :href="links.static">{{key}}</a></li>
+    </ul>
+    <p>Download the JSON files as they are hold in Browser storage (including your changes, if any):</p>
+    <ul>
+      <li v-for="(links,key) in file_links"><a :href="links.localStorage" :download="key">{{key}}</a></li>
+    </ul>
+    <p>Upcoming: CSV export (via server)
+  </div>
+  </div>
+</script>
+
 <script type="text/x-template" id="commit-view">
   <div class="commit-view">
     <h1 class="ui header">History and future of the database</h1>
@@ -291,19 +404,25 @@
 					<div class="sub header">Release your changes to the wild</div>
 				</h2>
 				
+				<i class="info circle icon"></i> Your changes are always stored persistently
+					in your browser.
+				
 				<div class="ui form">
 					<div class="field">
 						<label>Your name</label>
-						<input type="text" v-model="state.author" />
+						<input type="text" v-model="app.working_copy.author" />
 					</div>
 					<div class="field">
 						<label>Commit message (short description of changes)</label>
-						<textarea name="message" placeholder="Please write a sentence or two..." v-model="state.commit_msg"></textarea>
+						<textarea name="message" placeholder="Please write a sentence or two..." v-model="app.working_copy.commit_msg"></textarea>
 					</div>
 
-					<div @click="submit" class="ui submit labeled icon primary button">
-						<i class="save icon"></i> Submit
-					</div>
+					<button @click="submit" class="ui submit labeled icon primary button">
+						<i class="cloud upload icon"></i> Submit
+					</button>
+					<button @click="download" class="ui labeled icon button">
+						<i class="save icon"></i> Save as file
+					</button>
 				</div>
 			</div>
 		</div>
@@ -335,17 +454,26 @@
 
 <script type="text/x-template" id="schema-editor">
   <div class="schema-editor">
-    <h1 class="ui header">Inventory schema editor</h1>
-    <p>In the schema editor, you can edit the field descriptions and ways how they are displayed
-    in this very inventory editor.</p>
+    <h1 class="ui header">Inventory Fields</h1>
+    <p>The inventory database is formally <em>schema-free</em>, so you can always add any kind of field
+    to any inventory item, it is a document database for structured data (JSON). There is, however, a
+    JSON Schema (which is however never rigidly enforced) to document the fields, their meaning, the
+    way how they shall be displayed, and thereby of course the data type itself (say a text, or a number).
+    In this schema editor, you can edit these properties. Furthermore, you can explore the data by the
+    unique values for particlar fields.
+    </p>
 
-    <div class="ui link cards eight column grid">
-    <div class="ui card" v-for="(field, fieldname) in schema.properties" v-bind:key="schema.properties.fieldname">
+    <div class="ui" style="column-count:2">
+    <div class="ui card" style="width:auto; break-inside:avoid"
+	v-for="(field, fieldname) in schema.properties" v-bind:key="schema.properties.fieldname">
 	<div class="content">
 		<div class="right floated">
-			<div class="ui labeled input mini">
-				<!--<div class="ui label">Editor</div>-->
-				<select class="ui compact dropdown" v-model="field.editor">
+			<!--<div class="ui labeled input mini">-->
+			
+				<!--<div class="ui label">Editor</div>
+
+				<!-- Works:
+				<select class="ui search dropdown" v-model="field.editor">
 					<option disabled value="">default (inline)</option>
 					<option
 						v-for="opt in uniqueEditors"
@@ -353,51 +481,70 @@
 						v-bind:key="uniqueEditors.opt"
 					>{{opt}}</option>
 				</select>
-				<!-- Kann alternativ auch implementiert werden als
-									
-					<div class="ui selection dropdown">
-					<input name="gender" type="hidden">
-					<div class="default text">Select a value</div>
-					<i class="dropdown icon"></i>
-					<div class="menu">
-					<div class="item" data-value="0">Value</div>
-					<div class="item" data-value="1">Another Value</div>
-					</div>
-					</div>
-					
 				-->
+				
+				<div v-if="!field.immutable" class="ui floating labeled icon dropdown button">
+					<input type="hidden" name="editor" v-model="field.editor">
+					<i class="filter icon"></i>
+					<span class="text">(default editor)</span>
+					<div class="menu">
+						<div class="header">
+							<i class="tags icon"></i>
+							Choose editor type
+						</div>
+						<div class="divider"></div>
+						<div class="item" v-for="opt in uniqueEditors">{{ opt }}</div>
+					</div>
+				</div>
+				<button v-else class="ui labeled icon disabled button">
+					<i class="star icon"></i>
+					Immutable field
+				</button>
 				<!--<input v-model="field.editor" placeholder="Standard">-->
-			</div>
+			<!--</div>-->
 		</div>
 		<div class="header">{{fieldname}}</div>
 		<div class="description">
-			<p>{{ field.title }}</p>
-			<!--<textarea v-model="field.title" class="pseudo"></textarea>-->
-			
-			<div v-if="field.editor == 'select'">
-				<div v-if="uniqueFieldValues(fieldname)">
-					<p>Auswahlmöglichkeiten auf Basis der Varianten:</p>
-					<ul><li v-for="v in uniqueFieldValues(fieldname)">{{ v }}</li></ul>
+			<!--<p>{{ field.title }}</p>-->
+			<textarea v-model="field.title" class="pseudo"></textarea>
+		</div>
+	</div>
+	<div class="content" v-if="field.editor=='select' || field.show_unique_values_in_schema_editor">
+			<div v-if="uniqueFieldValues(fieldname).length">
+				<p v-if="field.editor=='select'">Auswahlmöglichkeiten auf Basis der Varianten:</p>
+				<p v-else>Vorhandene Werte:</p>
+				<div class="ui bulleted link list" style="column-width: 12em">
+					<a class="item" v-for="v in uniqueFieldValues(fieldname)">{{ v }}</a>
 				</div>
-				<p v-else>
-					ieses Feld wird bislang noch von <em>keinem</em> Eintrag in der Datenbank genutzt.
-				</p>
 			</div>
-			Explizite/Vorhergesehene Beispiele aus dem Schema:
-			<ul>
-				<li v-for="example in field.examples">{{ example }}</li>
-			</ul>
+			<p v-else>
+				<i class="info circle icon"></i> Dieses Feld wird bislang noch von <em>keinem</em> Eintrag in der Datenbank genutzt.
+			</p>
+	</div>
+	<div class="content" v-if="field.examples">
+		<!-- Don't want to provide an editor for that -->
+		Positivbeispiele für Werte:
+		<br>
+		<div class="ui horizontal bulleted list">
+			<div class="item" v-for="example in field.examples"><span class="ui green label">{{ example }}</span></div>
 		</div>
-		<div class="extra content">
-				<div class="ui basic label">Usage:
-					<div class="detail">{{ Math.round(usage(fieldname) * 100) }}%</div>
-				</div>
-				<div class="ui basic label">Unique values:
-					<div class="detail">{{ uniqueFieldValues(fieldname).length }}</div>
-				</div>
-		</div>
-
 	</div><!-- content -->
+	<div class="content" v-if="field.counterexamples">
+		<!-- Don't want to provide an editor for that -->
+		Negativbeispiele für Werte:
+		<br>
+		<div class="ui horizontal bulleted list">
+			<div class="item" v-for="example in field.counterexamples"><span class="ui red label">{{ example }}</span></div>
+		</div>
+	</div><!-- content -->
+	<div class="extra content">
+			<div class="ui basic label">Usage:
+				<div class="detail">{{ Math.round(usage(fieldname) * 100) }}%</div>
+			</div>
+			<div class="ui basic label">Unique values:
+				<div class="detail">{{ uniqueFieldValues(fieldname).length }}</div>
+			</div>
+	</div>
       </div><!-- ui card -->
       </div><!-- columns -->
   </div>
@@ -427,9 +574,9 @@
 				not implmented. Please <router-link to="/schema">edit the schema</router-link>.
 			</div>
 			
-			<div v-if="schema.is_default">
+			<!--<div v-if="schema.is_default">
 				(missing schema)
-			</div>
+			</div>-->
 		</span>
 		<span @click="enableEdit" @focus="enableEdit" class="pseudo-editable viewer">
 			{{ inv[field] }}

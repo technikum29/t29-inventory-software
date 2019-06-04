@@ -11,7 +11,7 @@
 # Quickly written by SvenK at 2019-04-26, 2019-05-10
 
 #builtins
-import os, sys, csv, io, re, platform, datetime, random, string, subprocess, hashlib
+import os, sys, csv, io, re, platform, datetime, random, string, subprocess, hashlib, time, errno
 from collections import defaultdict
 
 # libraries/dependencies
@@ -30,6 +30,79 @@ def make_handler(callback):
 		def get(self):
 			return callback(self)
 	return MiniHandler
+
+
+class FileLockException(Exception):
+    pass
+ 
+# tbd: probably move this to a helper file
+class FileLock(object):
+    """ A file locking mechanism that has context-manager support and doesnt
+        rely on fcntl.
+        Source: https://github.com/dmfrey/FileLock/blob/master/filelock/filelock.py#L15
+    """
+ 
+    def __init__(self, file_name, timeout=10, delay=.05):
+        """ Prepare the file locker. Specify the file to lock and optionally
+            the maximum timeout and the delay between each attempt to lock."""
+        if timeout is not None and delay is None:
+            raise ValueError("If timeout is not None, then delay must not be None.")
+        self.is_locked = False
+        self.lockfile = os.path.join(os.getcwd(), "%s.lock" % file_name)
+        self.file_name = file_name
+        self.timeout = timeout
+        self.delay = delay
+ 
+ 
+    def acquire(self):
+        """ Acquire the lock, if possible. If the lock is in use, it check again
+            every `wait` seconds. It does this until it either gets the lock or
+            exceeds `timeout` number of seconds, in which case it throws 
+            an exception. """
+        start_time = time.time()
+        while True:
+            try:
+                self.fd = os.open(self.lockfile, os.O_CREAT|os.O_EXCL|os.O_RDWR)
+                self.is_locked = True #moved to ensure tag only when locked
+                break;
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
+                if self.timeout is None:
+                    raise FileLockException("Could not acquire lock on {}".format(self.file_name))
+                if (time.time() - start_time) >= self.timeout:
+                    raise FileLockException("Timeout occured.")
+                time.sleep(self.delay)
+
+    def release(self):
+        """ Get rid of the lock by deleting the lockfile. 
+            When working in a `with` statement, this gets automatically 
+            called at the end.
+        """
+        if self.is_locked:
+            os.close(self.fd)
+            os.unlink(self.lockfile)
+            self.is_locked = False
+ 
+ 
+    def __enter__(self):
+        """ Activated when used in the with statement. 
+            Should automatically acquire a lock to be used in the with block."""
+        if not self.is_locked:
+            self.acquire()
+        return self
+ 
+ 
+    def __exit__(self, type, value, traceback):
+        " Activated at the end of the with statement. It automatically releases the lock if it isn't locked."
+        if self.is_locked:
+            self.release()
+ 
+ 
+    def __del__(self):
+        """ Make sure that the FileLock instance doesn't leave a lockfile
+            lying around."""
+	self.release()
 
 class memoize:
     def __init__(self, f):

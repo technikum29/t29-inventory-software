@@ -1,0 +1,40 @@
+{
+	"_comment": "This configuration file drives client JS, CLI utils and the Py server endpoint of the t29 inventory software",
+
+	"_comment/files": "Files to be edited by the client. Relative to inventory repository.",
+	"files": {
+		"inventory": "inventory.json",
+		"schema": "schema.json",
+		"media": "media.json"
+	},
+
+	"_comment/paths": "Paths, shared between client/server. Will most likely be symlinks.",
+	"paths": {
+		"inventory_repository": "inventory/",
+		"patches_directory": "patches/",
+		"media_repository": "media/"
+	},
+	
+	"_comment/media": "Configuration for thumbnail generators. All paths relative to media repository.",
+	"media": {
+		"upload_directory": "upload/",
+		"cache_directory": "resize-cache/",
+
+		"resize_version": "700x",
+		"square_thumbnail_suffix": ".thumb.jpg",
+		"square_thumbnail_placeholder": "placeholder.svg",
+
+		"media_collections": [
+			"2019-05-09 Fotos",
+			"upload"
+		]
+	},
+	
+	"_comment/server": "Common path agreements between client/server.",
+	"server": {
+		"prefix": "/",
+		"hello_path": "/hello",
+		"get_commit_path": "/get-commit",
+		"websocket_path": "/lazy-websocket-editor"
+	}
+}

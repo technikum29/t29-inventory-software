@@ -8,12 +8,12 @@
 # TBD: Read configuration from assets_config.json using jq.
 
 # directories where to read from and write to
-ORIGINALS="Rohbilder 2019-05-09"
+ORIGINALS="2019-05-09 Fotos" # Rohbilder 2019-05-09"
 SMALL="resize-cache"
 
 for img in "$ORIGINALS"/*.jpg; do
 	echo "Making smaller version of $img"
-#	convert -resize 700x "$img" "$SMALL/$(basename "$img")"
+	convert -resize 700x "$img" "$SMALL/$ORIGINALS/$(basename "$img")"
 done
 
 # Make a square thumbnail version.
