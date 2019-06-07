@@ -38,10 +38,16 @@ var app = {
 	view_state: undefined,
 	
 	patch_size: 0, // default, no changes made (yet)
-	view_settings: { // Current/default view state/Preferences in display types
-		inventory_list: { hide_without_images: true, tabular: false,
+	view_settings: {
+		// Current/default view state/Preferences in display types
+		inventory_list: {
+			hide_without_images: true,
+			tabular: false,
 			cols: [ "Inv-Nr.", "Objekt", "Beschreibung", "Ort" ]
-		}
+		},
+		inventory_detail: {
+			show_image_reordering: false
+		},
 	},
 	global_view_settings: {
 		show_welcome_infobox: true, // popup on first visit
@@ -212,6 +218,7 @@ var setup_vue = function() {
 	// Alternatively and similarly dirty for reactive data: Vue.prototype.$foo = 'bar', access as {{foo}}
 	
 	app.views = [
+		{ path: "/", redirect: "/inv" },
 		{
 			path: '/inv', // aka "the frontpage"
 			name: "list_all",
@@ -244,7 +251,10 @@ var setup_vue = function() {
 				template: '#inventory-detail',
 				props: ["inv"],         // the inventory record looked at
 				data: function() {
-					return { schema: app.files.schema } // shorthand
+					return {
+						schema: app.files.schema,
+						view: app.view_settings.inventory_detail
+					} // shorthand
 				},
 				computed: {
 					thumbnails: function() { return thumbnail_urls_for_id(this.inv[app.id_field]) },
@@ -252,7 +262,7 @@ var setup_vue = function() {
 				},
 				mounted: function() {
 					// Nice dimming effect of Semantic-UI. Not important, thought.
-					$('.cards .image').dimmer({ on: 'hover' });
+					// $('.cards .image').dimmer({ on: 'hover' });
 				},
 				methods: {
 					sort_media: function(current_idx, offset) {
@@ -269,7 +279,7 @@ var setup_vue = function() {
 			     
 					remove_media: function(idx) {
 						this.app.files.media[this.inv[app.id_field]].splice(idx, 1)
-					}
+					},
 				}
 			})
 		},
@@ -381,7 +391,8 @@ var setup_vue = function() {
 				function() { return app.files.schema.properties[this.field] || {
 					/* default schema */
 					editor: "single-line",
-					is_default: true
+					is_default: true,
+					type: "string"
 				}; },
 
 			// TBD: Move to $root.
@@ -408,7 +419,15 @@ var setup_vue = function() {
 					viewing: !this.isEditing(),
 					[this.schema.editor]: true // ES6 syntax
 				}
-			}
+			},
+
+		       viewFiltered: function() {
+				var raw = this.inv[this.field]
+				if(this.schema.type == "markdown") {
+					return markdown.makeHtml(raw)
+				}
+				return raw // TODO: html escape on myself here
+		       }
 		},
 		methods: { // shorthands for usages in templates
 			enableEdit: function() {
@@ -428,43 +447,54 @@ var setup_vue = function() {
 		}
 	});
 	
-	var router = new VueRouter({
-		routes: [].concat(
-			[ { path: "/", redirect: "/inv" } ],
-			app.views,
-		),
-		base: app.url_prefix
+	var app_vue = new Vue({
+		data: app, // Makes app reactive accross all routes
 		
-	});
-	
-	// A Vue in order to make app.state reactive across all routes
-	//  and also in order to deal with changing data
-	var state_vue = new Vue({
-		data: app,
+		router:  new VueRouter({
+			routes: app.views,
+			base: app.url_prefix
+		}),
+		
 		watch: {
 			state: { /* "state" property in the Vue data */ 
 				handler: debounce(app.send, app.debouncing_time_ms),
 				deep: true,
 				//immediate: true // called immediately after start of observation
 			},
+
 			// call new state once set
 			view_state: function(new_state) { states[new_state](); }
-		},	
-	});
-	
-	var app_vue = new Vue({ 
-		router: router,
-		data: app
+		},
+		
+		
+		// Only used for global search/navigation
+		methods: {
+			link_detail: function(rel) {
+				if(this.$route.name != "detail") return alert("Works only in inventory detail view");
+				var relations = inventory_relationships_by_id(this.$route)
+				this.$router.push({ name: "detail", params: { id: relations[rel] }})
+			},
+			link_prev: function() { this.link_detail("prev"); },
+			link_next: function() { this.link_detail("next"); },
+			reload: () => { persistentStorage.clear(); location.reload() }
+		}
 	}).$mount('#app');
 	
 	$("body").addClass("vue_works")
 };
 
+var inventory_relationships_by_id = function(route) {
+	// This functio encapsulates the "inventory is a number" paradigm.
+	// Alternatively, it could also search in app.files.inventory for the neighbouring inventories.
+	var itemInt = parseInt(route.params.id);
+	return { prev: (itemInt-1).toString(), next: (itemInt+1).toString() };
+}
+
 var inventory_by_id = function(route) {
 	var item = app.files.inventory.find(e_inv => e_inv[app.id_field] == route.params.id);
 	//console.log("Fand zu ID ",route.params.id," Datensatz ", item);
 	return { inv: item,
-		 inventory: app.files.inventory  // global just for navigation
+		 inventory: app.files.inventory, // global just for navigation
 	};
 };
 
@@ -589,6 +619,14 @@ app.main = function() {
 		e.preventDefault();
 	});
 };
+
+var markdown = new showdown.Converter({
+	simplifiedAutoLink: true,
+	literalMidWordUnderscores: true,
+	openLinksInNewWindow: true,
+});
+// markdown.setFlavor("github")
+
 
 //$($=>app.main());
 $(app.main)

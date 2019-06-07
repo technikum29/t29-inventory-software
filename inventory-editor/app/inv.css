@@ -100,6 +100,18 @@ textarea.pseudo {
 	font-size: 90%;
 }
 
+.inventory-detail .inv-image-label {
+	background: none! important;
+}
+
+.pull-right { float: right; }
+.clear-after:after { clear:both; content:"."; display:block; height:0; visibility:hidden; }
+
+/* Hover-effect */
+.inventory-detail .card .inv-image-label { opacity: 0; 
+     transition: opacity .2s ease-in-out;  }
+.inventory-detail .card:hover .inv-image-label { opacity: 1; }
+
 /** old stuff **/
 
 #header {
