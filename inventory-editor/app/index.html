@@ -135,7 +135,7 @@
 				</button>
 			</h3>
 			<div class="ui attached segment" id="edit-infobox">
-				<span v-if="Object.keys(app.working_copy).length">
+				<span v-if="app.git_log.length">
 					<p>This database is a <strong>editable by anyone</strong>. There is an underlying
 					Git version repository which ensures ever change can be tracked and rolled back, if neccessary.
 					<!-- Furthermore, this web application can be used online as well as offline. -->
@@ -368,7 +368,7 @@
 					<tr><th>key</th><th>value</th></tr>
 				</thead>
 				<tbody>
-					<tr v-for="(v,k) in inv" v-bind:key="k">
+					<tr v-for="(v,k) in inv" v-bind:key="inv.k">
 						<td>
 							{{ k }}
 							<div v-if="schema.properties[k]" class="secondary">{{ schema.properties[k].title }}</div>
@@ -380,8 +380,38 @@
 						</td>
 					</tr>
 					<tr>
-						<td><input placeholder="New field..."></td>
-						<td><input class="pseudo"></td>
+						<td id="add-new-field-miniform" style="font-weight: inherit">
+							<!--
+							<select class="ui search dropdown" v-model="new_field_name">
+								<option disabled value="">New field...</option>
+								<option
+									v-for="name in possibleNewFieldNames"
+									:value="name"
+									v-bind:key="possibleNewFieldNames.name"
+								>{{name}}</option>
+							</select>
+							-->
+							<div class="ui search selection dropdown">
+								<input type="text" id="new_field_name" data-workaround-bind="new_field_name">
+								<i class="dropdown icon"></i>
+								<div class="default text">New field...</div>
+								<div class="menu">
+									<div class="header">
+										<i class="edit outline icon"></i>
+										Unused fields
+									</div>
+									<div class="divider"></div>
+									<div class="item" v-for="name in possibleNewFieldNames" v-bind:key="possibleNewFieldNames.name"
+										:data-value="name">{{ name }}</div>
+								</div>
+							</div>
+							
+							<button class="ui right labeled icon button" @click="add_new_field">
+								<i class="plus icon"></i>
+								Add
+							</button>
+						</td>
+						<td><div class="ui input"><input class="pseudo" placeholder="Value..." disabled=""></div></td>
 					</tr>
 				</tbody>
 				</table>
@@ -439,8 +469,7 @@
 					<div class="sub header">Release your changes to the wild</div>
 				</h2>
 				
-				<i class="info circle icon"></i> Your changes are always stored persistently
-					in your browser.
+
 				
 				<div class="ui form">
 					<div class="field">
@@ -452,34 +481,55 @@
 						<textarea name="message" placeholder="Please write a sentence or two..." v-model="app.working_copy.commit_msg"></textarea>
 					</div>
 
-					<button @click="submit" class="ui submit labeled icon primary button">
+					<button @click="submit" class="ui submit labeled icon primary button" :disabled="!has_edits()">
 						<i class="cloud upload icon"></i> Submit
 					</button>
-					<button @click="download" class="ui labeled icon button">
+					<button @click="download" class="ui labeled icon button" :disabled="!has_edits()">
 						<i class="save icon"></i> Save as file
 					</button>
+					
+					<p v-if="!has_edits()">
+						<i class="info circle icon"></i> No edits which can be submitted yet.
+					</p>
 				</div>
 			</div>
 		</div>
 		<div class="column">
 			<div class="ui segment">
 				<h2>Overview of your changes</h2>
-				<div class="ui list">
-					<div class="item" v-for="rec in patch()">
-						<i class="pencil alternate icon"></i>
-						Editing <strong>{{ rec.part}}</strong>
-						<template v-if="rec.inv">{{ rec.inv[app.id_field] }}</template>,
-						<strong>{{ rec.op_verb }}</strong>
-						field {{rec.path}}
-						<div class="description" v-if="rec.op == 'replace'">now <em>{{rec.value}}</em></div>
-						<div class="description" v-if="rec.op == 'add'">new value <em>{{rec.value}}</em></div>
+				<template v-if="has_edits()">
+					<i class="info circle icon"></i> Your changes are always stored persistently
+					  in your browser.
+				
+					<div class="ui list">
+						<div class="item" v-for="rec in patch()">
+							<i class="pencil alternate icon"></i>
+							Editing <strong>{{ rec.part}}</strong>
+							<template v-if="rec.inv">{{ rec.inv[app.id_field] }}</template>,
+							<strong>{{ rec.op_verb }}</strong>
+							field {{rec.path}}
+							<div class="description" v-if="rec.op == 'replace'">now <em>{{rec.value}}</em></div>
+							<div class="description" v-if="rec.op == 'add'">new value <em>{{rec.value}}</em></div>
+						</div>
 					</div>
-				</div>
+				</template>
+				<p v-else>
+					<i class="edit icon"></i> No changes yet made! You can edit the inventory by clicking
+					on  the texts you want to change. These changes will be stored on your computer until
+					you submit them officially.
+				</p>
 			</div>
 		</div>
 		<div class="column">
 			<div class="ui segment">
-				Git history here
+				<h2>Database history (git)</h2>
+				<div class="ui list">
+					<div class="item" v-for="commit in app.git_log">
+						<i class="git square icon"></i>
+						<strong>{{ commit.author }}</strong> at {{ commit.date }}:
+						<p>{{ commit.message }}</p>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

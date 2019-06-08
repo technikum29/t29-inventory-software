@@ -33,8 +33,9 @@
 	"_comment/server": "Common path agreements between client/server.",
 	"server": {
 		"prefix": "/",
-		"hello_path": "/hello",
+		"git_log_path": "/git-log",
 		"get_commit_path": "/get-commit",
-		"websocket_path": "/lazy-websocket-editor"
+		"websocket_path": "/lazy-websocket-editor",
+		"port": 8080
 	}
 }

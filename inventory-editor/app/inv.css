@@ -106,6 +106,7 @@ textarea.pseudo {
 
 .pull-right { float: right; }
 .clear-after:after { clear:both; content:"."; display:block; height:0; visibility:hidden; }
+.hidden { display: none; }
 
 /* Hover-effect */
 .inventory-detail .card .inv-image-label { opacity: 0; 

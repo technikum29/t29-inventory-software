@@ -25,9 +25,15 @@ var app = {
 	///        in their current state (with all changes)
 	files: {},
 	
-	/// working_copy: Git information about the base commit loaded
+	/// working_copy: Local information about author, email, prepared commit message
 	working_copy: {},
-		
+	
+	/// git_log: Purely remotely-fetched git log (requires dynamic git server, thus criterion whether online)
+	git_log: [],
+	
+	/// Latest Information about the head commit available...
+	remote_head: {},
+	
 	/// Message structs are of type {type:"warning",header:"Didnt work","body":"Explanation"}
 	/// and will be shown at top
 	messages: [],
@@ -36,6 +42,7 @@ var app = {
 	loaded: false,
 	connection: "loading...",
 	view_state: undefined,
+	backend_online: undefined,
 	
 	patch_size: 0, // default, no changes made (yet)
 	view_settings: {
@@ -73,13 +80,25 @@ show_message = (type, header, body) => { app.messages.push({type,header,body}); 
 //   functions/classes, this could slow down vue.
 
 url_for = absolute => window.location.protocol + "//" + window.location.host + app.url_prefix + absolute 
+backend_url_for = absolute => window.location.protocol + "//" + window.location.host + ":" + app.config.server.port + absolute 
 
-
-function setup_ui_dropdown(el) {
-	$(el).find('.ui.dropdown').dropdown({
+function setup_ui_dropdown(el, component) {
+	// Dropdown with hidden input works badly with VueJS https://github.com/vuejs/vue/issues/1194
+	// My workaround is an hidden input like
+	//     <input type="text" data-workaround-bind="name_of_component_variable">
+	// This is ugly as hell but works at least, in contrast to the github issue solutions.
+	// However, Dropdowns using <select> as basis do (surprisingly!) work without any hacks.
+	return $(el).find('.ui.dropdown').dropdown({
 		allowAdditions: true,
-		onBlur: function() { that.editing = false;  }
-	});
+		onChange: function(value) {
+			var $field=$(this).find("input")
+			if(component && $field) {
+				var field_name = $field.data("workaround-bind")
+				component[field_name] = value
+			}
+		}
+        })
+	
 }
 
 // Returns a function, that, as long as it continues to be invoked, will not
@@ -253,16 +272,26 @@ var setup_vue = function() {
 				data: function() {
 					return {
 						schema: app.files.schema,
-						view: app.view_settings.inventory_detail
+						view: app.view_settings.inventory_detail,
+
+						// truly local instance data
+						new_field_name: undefined
 					} // shorthand
 				},
 				computed: {
 					thumbnails: function() { return thumbnail_urls_for_id(this.inv[app.id_field]) },
 					media: function() { return media_urls_for_id(this.inv[app.id_field]) },
+					possibleNewFieldNames: function() {
+						var allPossibleFieldNames = Object.keys(app.files.schema.properties)
+						var usedFieldNames = Object.keys(this.inv)
+						return allPossibleFieldNames.filter(x => !usedFieldNames.includes(x))
+					}
 				},
 				mounted: function() {
 					// Nice dimming effect of Semantic-UI. Not important, thought.
 					// $('.cards .image').dimmer({ on: 'hover' });
+					
+					setup_ui_dropdown("#add-new-field-miniform", this)
 				},
 				methods: {
 					sort_media: function(current_idx, offset) {
@@ -280,6 +309,13 @@ var setup_vue = function() {
 					remove_media: function(idx) {
 						this.app.files.media[this.inv[app.id_field]].splice(idx, 1)
 					},
+			     
+					add_new_field: function() {
+						if(!this.new_field_name) { alert("Cannot add new field without name"); return }
+						Vue.set(this.inv, this.new_field_name, "")
+						this.new_field_name = ""
+						// could call dropdown("clear")
+					}
 				}
 			})
 		},
@@ -289,7 +325,9 @@ var setup_vue = function() {
 			component: Vue.component("CommitView", {
 				template: "#commit-view",
 				data: function() {
-					return { files: app.files } // To be fixed (was state: app.state)
+					return {
+						files: app.files,
+					}
 				},
 				methods: {
 					submit: ()=>{
@@ -302,7 +340,8 @@ var setup_vue = function() {
 					download: ()=>{
 						alert("Todo: Find single JSON which to send to server; also download it instead. (Git JSON exchange format)")
 					},
-					patch: app.human_readable_patch
+					patch: app.human_readable_patch,
+					has_edits: () => app.base_patch().length > 0
 				},
 			})
 		},
@@ -443,7 +482,8 @@ var setup_vue = function() {
 			var that = this;
 			
 			// Semantic-UI allways allow additions to dropdowns
-			setup_ui_dropdown(this.$el) // -> try differently instead
+			setup_ui_dropdown(this.$el)
+				.dropdown('setting', 'onBlur', () => that.editing = false)
 		}
 	});
 	
@@ -476,7 +516,7 @@ var setup_vue = function() {
 			},
 			link_prev: function() { this.link_detail("prev"); },
 			link_next: function() { this.link_detail("next"); },
-			reload: () => { persistentStorage.clear(); location.reload() }
+			reload: () => { persistentStorage.clear(); location.reload() },
 		}
 	}).$mount('#app');
 	
@@ -540,33 +580,37 @@ persistentStorage.load =()=> { persistentStorage.fields.forEach(k => app[k] = JS
 	setup_patch_observer(); }
 persistentStorage.clear =()=> persistentStorage.fields.forEach(k => localStorage.removeItem(persistentStorage.ns(k)))
 
+// An AJAX Promise that GET's JSON
+var load = src => fetch(src)
+	.then(res => res.ok ? res : Promise.reject(`Request rejected with status ${res.status}`))
+	.catch(()=>
+		show_message("negative", "Could not download required ressource",
+		`Ressource <a href="${src}">${src}</a> could not be accessed`))
+	.then(res => res.json())
+	.catch(()=>
+		show_message("negative", "Malformed database ressource",
+		`Ressource <a href="${src}">${src}</a>  is not valid JSON`))
+
 /** Change the application state with app.view_state = "XXX" */
 var states = {
 	pulling(msg) {
 		app.connection = msg ? msg : "pulling"
 		
-		// Todo: Load Head commit information into app.working_copy
-		
-		var load = src => fetch(url_for(src))
-			.then(res => res.ok ? res : Promise.reject(`Request rejected with status ${res.status}`))
-			.catch(()=>
-				show_message("warning", "Could not download required ressource",
-				`Ressource <a href="${url_for(src)}">${url_for(src)}</a> could not be accessed`))
-			.then(res => res.json())
-			.catch(()=>
-				show_message("warning", "Malformed database ressource",
-				`Ressource <a href="${url_for(src)}">${url_for(src)}</a>  is not valid JSON`))
-	
-		return load(app.configuration_path, "config").then(config => {
+		return load(url_for(app.configuration_path)).then(config => {
 			app.config = config     // accessible to vue
 			window.config = config  // globalize as shortcut
 			
+			// Load already stuff which requires dynamic server (git server)
+			var backend_url = backend_url_for(app.config.server.git_log_path)
+			var backend_promise = load(backend_url).then(data => Vue.set(app, "git_log", data))
+				.catch((err)=> show_message("info", "Read-only",
+				`The connection to <a href="${backend_url}">${backend_url}</a> doesn't work. That might be okay, the database is just read-only for the time being.`))
+			
 			// Download all relevant git-managed json files
-			return Promise.all(
+			var static_promises = Promise.all(
 				Object.keys(config.files).map(key =>
-					load(pathJoin([config.paths.inventory_repository, config.files[key]]))
-					.then(data => Vue.set(app.files, key, data))
-				)
+					load(url_for(pathJoin([config.paths.inventory_repository, config.files[key]])))
+					.then(data => Vue.set(app.files, key, data)))
 			).then(()=> {
 				persistentStorage.store();
 				setup_patch_observer();
@@ -574,6 +618,13 @@ var states = {
 				// states.viewing()
 				app.view_state = "viewing"
 			})
+			
+			Promise.all(static_promises.concat(backend_promise)).then(() => {
+				// a Naive assumption
+				app.working_copy["base_commit_id"] = app.git_log[0].id
+			})
+			
+			return static_promises
 		}, /*failure*/()=>{
 			show_message("warning", "Could not start application",
 				"Could not load base configuration from " + url_for(app.configuration_path))
@@ -599,6 +650,7 @@ var states = {
 
 app.main = function() {
 	setup_vue()
+
 	if(persistentStorage.isNonEmpty()) {
 		persistentStorage.load()
 		app.view_state = "pulling" // trigger a pull
