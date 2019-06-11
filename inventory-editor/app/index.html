@@ -140,9 +140,9 @@
 					Git version repository which ensures ever change can be tracked and rolled back, if neccessary.
 					<!-- Furthermore, this web application can be used online as well as offline. -->
 
-					Currently, <span class="ui teal horizontal label">Commit <span class="detail">{{ app.working_copy.head_commit.id.substring(0,6) }}</span></span>
-					is loaded, originating from {{ app.working_copy.head_commit.date }}.
-					This commit was last edited by <strong>{{ app.working_copy.head_commit.author }}</strong>.
+					Currently, <span class="ui teal horizontal label">Commit <span class="detail">{{ app.working_copy.base_commit.id.substring(0,6) }}</span></span>
+					is loaded, originating from {{ app.working_copy.base_commit.date }}.
+					This commit was last edited by <strong>{{ app.working_copy.base_commit.author }}</strong>.
 					
 					<p>Your edits are currently tracked with the username
 						<span class="ui left icon input mini">
@@ -452,7 +452,11 @@
     <ul>
       <li v-for="(links,key) in file_links"><a :href="links.localStorage" :download="key">{{key}}</a></li>
     </ul>
-    <p>Upcoming: CSV export (via server)
+    <p>Upcoming: CSV export (via server)</p>
+    <p v-if="app.view_state=='editing'">
+       <i class="info circle icon"></i>
+       Export local changes in the <router-link to="/commit">commit view</router-link>.
+    </p>
   </div>
   </div>
 </script>
@@ -463,14 +467,11 @@
     <div class="ui grid">
 	<div class="three column row">
 		<div class="column">
-			<div class="ui segment">
+			<div class="ui segment" :class="{ dimmable: sending, dimmed: sending }">
 				<h2 class="ui header">
 					Submit your changes
 					<div class="sub header">Release your changes to the wild</div>
 				</h2>
-				
-
-				
 				<div class="ui form">
 					<div class="field">
 						<label>Your name</label>
@@ -484,13 +485,18 @@
 					<button @click="submit" class="ui submit labeled icon primary button" :disabled="!has_edits()">
 						<i class="cloud upload icon"></i> Submit
 					</button>
-					<button @click="download" class="ui labeled icon button" :disabled="!has_edits()">
+					<a :href="patch_download_link()" :download="patch_download_filename()" class="ui labeled icon button" :disabled="!has_edits()">
 						<i class="save icon"></i> Save as file
-					</button>
+					</a>
 					
 					<p v-if="!has_edits()">
 						<i class="info circle icon"></i> No edits which can be submitted yet.
 					</p>
+				</div>
+				<div class="ui simple dimmer" v-if="sending">
+					<div class="content">
+						<div class="ui indeterminate text loader">Publishing...</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -521,14 +527,25 @@
 			</div>
 		</div>
 		<div class="column">
-			<div class="ui segment">
+			<div class="ui segment git-log">
 				<h2>Database history (git)</h2>
-				<div class="ui list">
-					<div class="item" v-for="commit in app.git_log">
+				<div class="ui relaxed divided list" v-if="has_connection()">
+					<div class="item" v-for="commit in app.git_log" :class="{ 'git-mine': commit.author == app.working_copy.author }">
 						<i class="git square icon"></i>
-						<strong>{{ commit.author }}</strong> at {{ commit.date }}:
-						<p>{{ commit.message }}</p>
+						<div class="content">
+							<strong>{{ commit.author }}</strong>
+							<template v-if="commit.author == app.working_copy.author">(this is you!)</template>
+							at {{ commit.date }}:
+							<p>{{ commit.message }}</p>
+						</div>
 					</div>
+				</div>
+				<div class="ui warning message" v-else>
+					<div class="header">Currently no online-editing possible</div>
+					<p>
+						You are currently offline, no database connection exists.
+						Therefore, no information about the database state is available.
+					</p>
 				</div>
 			</div>
 		</div>

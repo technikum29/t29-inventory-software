@@ -59,7 +59,8 @@ var app = {
 	global_view_settings: {
 		show_welcome_infobox: true, // popup on first visit
 		show_editing_infobox: false,
-		search_box_content: ''
+		search_box_content: '',
+		never_edited_before: true,
 	},
 
 	// how frequently to compute json patch updates
@@ -73,8 +74,8 @@ var app = {
 	configuration_path: "/inventory-editor-config.json"
 };
 
-// returns reject Promise for convenience, as usually used in that context
-show_message = (type, header, body) => { app.messages.push({type,header,body}); return Promise.reject("Failure: "+body) }
+show_message = (type, header, body) => app.messages.push({type,header,body})
+error_message = (t, g, b) => { show_message(t,h,b); return Promise.reject("Failure: "+b) }
 
 // possible caveats: Since I am abusing app also as storage for
 //   functions/classes, this could slow down vue.
@@ -152,6 +153,16 @@ uniqueFieldValues = (obj, key) => unique($.map(obj, el => el[key]))
 fieldValues = (obj, key) => withoutNones($.map(obj, el => el[key]))
 // the safest method
 deepCopy = obj => JSON.parse(JSON.stringify(obj));
+// Makes a downloadable data URI for JSON documents
+jsonURI = obj => "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(obj)),
+dateAsString = () => new Date().toISOString()
+
+commit_structure = () => ({
+	working_copy: app.working_copy,
+	files: app.files,
+	// additional meta information only helpful for debugging local "patching"
+	meta: { date: dateAsString() }
+});
 
 var setup_patch_observer = function() {
 	// should be called whenever app.files is replaced or one wants to track changes from scratch
@@ -161,40 +172,11 @@ var setup_patch_observer = function() {
 	
 	// Setup jsonpatch observation of inventory object.
 	// Could also define a callback here.
-	var patch_observer = jsonpatch.observe(app.files);
+	var patch_observer = jsonpatch.observe(app.files, (patch) => {
+		if(app.view_state != "editing") app.view_state = "editing";
+		app.patch_size += patch.length; // kind of statistics
+	});
 }
-
-var setup_uplink = function() {
-	// setup synchronization routines
-	var fqdn_ws_path = "ws://" + window.location.host + app.config.paths.websocket_path;
-	app.websocket = new WebSocket(fqdn_ws_path); // allow the state to be displayed by vue
-	
-	var msg_counter = 0;
-	app.websocket.onmessage = evt => {
-		//msg = JSON.parse(evt.data)
-		// Initial message is the initial state
-		//if(msg_counter++ == 0) app.state = msg
-		console.log("Recieved ", msg)
-	}
-	
-	app.websocket.onopen = evt => app.connection = "connected"
-	app.websocket.onclose = evt => app.connection = "closed"
-	
-	
-	app.send = function() {
-		// JSONPatch will show all *pending* changes, i.e. not relative to root document
-		var patch = jsonpatch.generate(patch_observer)
-		app.patch_size += patch.length;
-		app.websocket.send(JSON.stringify(patch));
-	};
-	
-	app.commit = function() {
-		$.getJSON("/commit", { "message": app.commit_msg  },
-			  res => console.log(res)
-		)
-		// maybe reloading the page is a good idea now.
-	}
-};
 
 app.human_readable_patch = function() {
 	return app.base_patch().map(patch => {
@@ -327,21 +309,37 @@ var setup_vue = function() {
 				data: function() {
 					return {
 						files: app.files,
+						// local states
+						sending: false,
 					}
 				},
 				methods: {
-					submit: ()=>{
-						if(app.commit) app.commit()
-						else {
-							show_message("warning", "Cannot connect to git database",
-							"Please download your database changes instead and mail it to the administration.")
-						}
+					submit: function() {
+						this.sending = true;
+						var that = this;
+						fetch(backend_url_for(app.config.server.git_commit_path), {
+							method: 'POST',
+							body: JSON.stringify(commit_structure())
+						})
+						.then(res => res.ok ? res : Promise.reject(`Request rejected with status ${res.status}`))
+						.then(() => {
+							show_message("positive", "Published your changes",
+								`Your ${app.patch_size} changes to the database were successfully published.`)
+							app.patch_size = 0; // reset change tracker
+							app.working_copy.commit_msg = ""; // reset commit message
+							app.view_state = "pulling"; // trigger an update
+						})
+						.catch((res)=> { error_message("negative", "Could not upload changes",
+							"The server seems broken. Please save your changes instead as file and send them by mail.")
+							console.log("Raw failure posting message: ",res)
+						})
+						.finally(() => that.sending = false);
 					},
-					download: ()=>{
-						alert("Todo: Find single JSON which to send to server; also download it instead. (Git JSON exchange format)")
-					},
+					patch_download_link: () => jsonURI(commit_structure()),
+					patch_download_filename: () => `t29-inv-patch-${app.working_copy.author}-${dateAsString()}.json`,
 					patch: app.human_readable_patch,
-					has_edits: () => app.base_patch().length > 0
+					has_edits: () => app.base_patch().length > 0,
+					has_connection: () => app.git_log.length > 0,
 				},
 			})
 		},
@@ -397,7 +395,7 @@ var setup_vue = function() {
 				data: function() { return { file_links: Object.keys(config.files).reduce((obj, fn) => {
 					obj[ config.files[fn] ] = {
 						static: pathJoin([app.url_prefix, config.paths.inventory_repository, config.files[fn]]),
-						localStorage: "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(app.files[fn])),
+						localStorage: jsonURI(app.files[fn]),
 					}
 					return obj
 				   }, {})
@@ -584,11 +582,11 @@ persistentStorage.clear =()=> persistentStorage.fields.forEach(k => localStorage
 var load = src => fetch(src)
 	.then(res => res.ok ? res : Promise.reject(`Request rejected with status ${res.status}`))
 	.catch(()=>
-		show_message("negative", "Could not download required ressource",
+		error_message("negative", "Could not download required ressource",
 		`Ressource <a href="${src}">${src}</a> could not be accessed`))
 	.then(res => res.json())
 	.catch(()=>
-		show_message("negative", "Malformed database ressource",
+		error_message("negative", "Malformed database ressource",
 		`Ressource <a href="${src}">${src}</a>  is not valid JSON`))
 
 /** Change the application state with app.view_state = "XXX" */
@@ -619,14 +617,14 @@ var states = {
 				app.view_state = "viewing"
 			})
 			
-			Promise.all(static_promises.concat(backend_promise)).then(() => {
+			Promise.all([static_promises, backend_promise]).then(() => {
 				// a Naive assumption
-				app.working_copy["base_commit_id"] = app.git_log[0].id
+				app.working_copy["base_commit"] = app.git_log[0]
 			})
 			
 			return static_promises
 		}, /*failure*/()=>{
-			show_message("warning", "Could not start application",
+			error_message("warning", "Could not start application",
 				"Could not load base configuration from " + url_for(app.configuration_path))
 		})
 	},
@@ -645,6 +643,10 @@ var states = {
 		// once some changes have been made
 		// going back to viewing after commit.
 		app.connection = "Editing"
+		
+		if(app.global_view_settings.never_edited_before) {
+			app.global_view_settings.show_editing_infobox = true;
+		}
 	}
 }
 

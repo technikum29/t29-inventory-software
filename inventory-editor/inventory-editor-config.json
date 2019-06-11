@@ -34,8 +34,7 @@
 	"server": {
 		"prefix": "/",
 		"git_log_path": "/git-log",
-		"get_commit_path": "/get-commit",
-		"websocket_path": "/lazy-websocket-editor",
+		"git_commit_path": "/git-commit",
 		"port": 8080
 	}
 }

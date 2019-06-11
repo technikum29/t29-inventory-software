@@ -154,6 +154,13 @@ div.inventory-detail ul.media img {
    .ui.stackable.cards > .inv-card { width: 18% !important; }
 }
 
+.git-log p {
+	white-space: pre-wrap;
+}
+.git-log .git-mine {
+	color: #006900;
+}
+
 /*******************************************************************/
 
 /*
