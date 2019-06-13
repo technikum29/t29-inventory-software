@@ -29,7 +29,7 @@ import tornado.ioloop, tornado.web, tornado.websocket
 from tornado.escape import json_decode, json_encode
 from tornado.web import HTTPError
 import json
-import jsonpatch # pip3 install jsonpatch or so
+#import jsonpatch # pip3 install jsonpatch or so
 import pygit2 # apt install python3-pygit2
 #import sh # apt install python-sh
 

@@ -11,14 +11,16 @@
 ORIGINALS="2019-05-09 Fotos" # Rohbilder 2019-05-09"
 SMALL="resize-cache"
 
+mkdir -p "$SMALL/$ORIGINALS"
+
 for img in "$ORIGINALS"/*.jpg; do
 	echo "Making smaller version of $img"
-	convert -resize 700x "$img" "$SMALL/$ORIGINALS/$(basename "$img")"
+#	convert -resize 700x "$img" "$SMALL/$ORIGINALS/$(basename "$img")"
 done
 
 # Make a square thumbnail version.
 # Thanks to the low quality, they are super small (<10kB). 
-for img in "$SMALL"/*.jpg; do
+for img in "$SMALL"/*/*.jpg; do
 	echo "Making thumbnail for $img"
 	convert -define jpeg:size=600x600 "$img" \
 		-thumbnail 400x400^ -gravity center -extent 300x300 \
