@@ -200,7 +200,12 @@ app.human_readable_patch = function() {
 }
 
 var setup_vue = function() {
-	// First, register a couple of global Vue components
+	Vue.filter('firstParagraph', function (value) {
+		if (!value) return ''
+		//value = value.toString()
+		return value.split("\n", 1)[0]
+	})
+
 	
 	// Hey, the global mixin. To support the crappy strategy of a global object without vuex
 	Vue.mixin({
@@ -279,9 +284,11 @@ var setup_vue = function() {
 			name: "detail",
 			component:  Vue.component("InventoryDetail", {
 				template: '#inventory-detail',
-				props: ["inv"],         // the inventory record looked at
+				props: ["inv"],  // the inventory record looked at
 				data: function() {
 					return {
+						// shorthands
+						inventory: app.files.inventory,
 						schema: app.files.schema,
 						view: app.view_settings.inventory_detail,
 
@@ -574,9 +581,7 @@ var inventory_relationships_by_id = function(route) {
 var inventory_by_id = function(route) {
 	var item = app.files.inventory.find(e_inv => e_inv[app.id_field] == route.params.id);
 	//console.log("Fand zu ID ",route.params.id," Datensatz ", item);
-	return { inv: item,
-		 inventory: app.files.inventory, // global just for navigation
-	};
+	return { inv: item };
 };
 
 var thumbnail_urls_for_id = function(invnr) {
