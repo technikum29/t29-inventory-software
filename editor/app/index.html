@@ -31,9 +31,9 @@
 <div id="app"  :class="[{ loaded: app.loaded }, { loading: !app.loaded }, app.view_state ]">
 
 	<div class="ui top fixed stackable menu" id="top-menu">
-			<router-link to="/" class="header item">
+			<router-link to="/" class="header item" style="display: flex !important">
 				<img class="logo" src="t29-logomarke.svg" style="margin-right:1em">
-				technikum29<br/>Inventory Viewer and Editor
+				<div style="inline-block; vertical-align: middle">technikum29<br/>Inventory Viewer and Editor</div>
 			</router-link>
 			<div class="ui simple dropdown item">
 				View <i class="dropdown icon"></i>
@@ -89,7 +89,7 @@
 				</div>
 			</div>
 			
-			<div class="hamburger item">
+			<div class="hamburger">
 			    <span class="hamburger-bun"></span>
 			    <span class="hamburger-patty"></span>
 			    <span class="hamburger-bun"></span>
@@ -257,12 +257,12 @@
 			<img :src="url_for_teaser[index] || placeholder">
 		</div>
 		<div class="content">
-			<div class="header">{{ inv[app.id_field] }}</div>
-			<div class="meta">
-				{{ inv.Objekt }}
+			<div class="header">
+				<div class="id">{{ inv[app.id_field] }}</div>
+				<div class="objekt">{{ inv.Objekt }}</div>
 			</div>
 			<div class="description">
-				{{ inv.Beschreibung }}
+				{{ inv.Beschreibung | firstParagraph }}
 			</div>
 		</div>
 	</router-link>
@@ -287,7 +287,7 @@
 		
 		<p class="ui form"><field-display v-bind:inv="inv" field="Beschreibung" /></p>
 
-		<div class="ui grid">
+		<div class="ui stackable grid">
 			<div class="eight wide column">
 				<!--
 					{{ thumbnails.length }} images.

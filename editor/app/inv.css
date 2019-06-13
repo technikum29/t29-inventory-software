@@ -51,8 +51,13 @@ body.vue_works #no_vue { display: none; }
 	object-fit: cover;
 }
 
-.inventory-list .card .header, .inventory-list .card .meta {
+.inventory-list .card .id,
+.inventory-list .card .objekt {
 	display: inline !important; /* more compact */
+}
+
+.inventory-list .card .id {
+	font-weight: normal;
 }
 
 
@@ -195,12 +200,14 @@ By @betoayesa.
 		width: 20px;
 		height: 20px;
 		position: absolute;
-		right: 9px;
-		top: 13px;
+		right: 0;
+		top: 0;
 		cursor: pointer;
 		display: block;
+		box-sizing: content-box;
+		padding: 22px;
 	}
-	.hamburger 	span {
+	.hamburger span {
 		display: block;
 		height: 3px;
 		background: #000;
@@ -268,7 +275,7 @@ By @betoayesa.
 		display: none;
 	}
 
-	.ui.stackable.menu .item:not(.header){
+	.ui.stackable.menu .item:not(.header) {
 		display:none;
 	}
 
@@ -280,9 +287,6 @@ By @betoayesa.
 		height:inherit
 	}
 }
-		
-	
-
 
 /* Tablet / iPad Portrait */
 @media only screen and (min-width: 768px) and (max-width: 991px) {
