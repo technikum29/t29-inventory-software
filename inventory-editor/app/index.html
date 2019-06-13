@@ -16,6 +16,7 @@
  <script src="libs/vue-router.js" type="text/javascript"></script>
  <script src="libs/fast-json-patch.min.js" type="text/javascript"></script>
  <script src="libs/showdown.min.js" type="text/javascript"></script>
+ <script src="libs/fuse-3.4.5.min.js" type="text/javascript"></script>
  <script src="main.js" type="text/javascript"></script>
  
  <!-- for the time being, test these -->
@@ -55,7 +56,10 @@
 			<a class="item" v-if="$route.name=='detail'" @click="link_prev()"><i class="arrow left icon"></i></a>
 			<div class="ui category search item">
 				<div class="ui transparent icon input">
-					<input class="prompt" type="text" v-model="app.global_view_settings.search_box_content" placeholder="Search inventory...">
+					<input class="prompt" type="text"
+						v-model="app.global_view_settings.search_box_content"
+						v-on:keyup.enter="triggerGlobalSearch" v-on:keydown="triggerGlobalSearch"		
+						placeholder="Search inventory...">
 					<i class="search link icon"></i>
 				</div>
 				<div class="results"></div>
@@ -192,7 +196,24 @@
 
 <script type="text/x-template" id="inventory-list">
   <div class="inventory-list">
-    <h1 class="ui header">Illustrated Inventory</h1>
+    <h1 class="ui header">
+	<template v-if="!app.global_view_settings.search_box_content">Illustrated Inventory</template>
+	<template v-else>Showing {{ inventory.length }} Inventory items matching query
+	   <span class="ui small icon input" style="display:inline-block">
+		   <input type="text" v-model="app.global_view_settings.search_box_content" style="padding:.2em">
+		   <i class="icon search"></i>
+           </span>
+	   <button class="ui button" @click="app.global_view_settings.search_box_content=''">Clear</button>
+	</template>
+    </h1>
+    
+    <!--
+    <p v-if="app.global_view_settings.search_box_content">
+      <i class="info circle icon"></i> This is a fuzzy search performed on all fields of the inventory.
+        Due to it's fuzzyness, the results further down are less relevant, as with a Google search.
+        Consider also showing inventory that lacks photos for the full result.
+    </p>
+    -->
     
     <p>
 	<!--<div class="ui toggle checkbox">
@@ -200,7 +221,8 @@
 		<label>Hide inventory lacking photos</label>
 	</div>-->
 	<button class="ui toggle labeled icon button" v-bind:class="{ active: !view.hide_without_images }"
-		@click="view.hide_without_images =! view.hide_without_images"><i class="icon image"></i> Show inventory lacking photos</button>
+		@click="view.hide_without_images =! view.hide_without_images"><i class="icon image"></i> Show 
+		{{ number_of_inv_without_photos }} items lacking photos</button>
 	<button class="ui toggle labeled icon button" v-bind:class="{ active: view.tabular }"
 		@click="view.tabular =! view.tabular"><i class="icon table"></i> Tabular view</button>
 
@@ -228,9 +250,8 @@
 		:to="{name:'detail', params:{id:inv[app.id_field]}}"
 		class="ui fluid card inv-card"
 		v-for="(inv,index) in inventory"
-		v-if="!view.hide_without_images || url_for_teaser[index]">
-		<!-- do not bind for performance; v-bind:key="inv[app.id_field]"> -->
-	
+		v-if="!view.hide_without_images || url_for_teaser[index]"
+		><!-- v-bind:key="inv[app.id_field]"> -->
 	
 		<div class="image">
 			<img :src="url_for_teaser[index] || placeholder">
@@ -368,7 +389,7 @@
 					<tr><th>key</th><th>value</th></tr>
 				</thead>
 				<tbody>
-					<tr v-for="(v,k) in inv" v-bind:key="inv.k">
+					<tr v-for="(v,k) in inv"><!-- wont work:  v-bind:key="inv.k" -->
 						<td>
 							{{ k }}
 							<div v-if="schema.properties[k]" class="secondary">{{ schema.properties[k].title }}</div>
@@ -667,6 +688,7 @@
 			
 			<!-- compact -->
 			<select v-else-if="schema.editor=='select'" class="ui search dropdown" :class="inputClass" v-model="inv[field]">
+				<option value="">(leer)</option>
 				<option
 					v-for="opt in uniqueFieldValues"
 					:value="opt"
@@ -684,6 +706,9 @@
 				(missing schema)
 			</div>-->
 		</span>
-		<span @click="enableEdit" @focus="enableEdit" class="pseudo-editable viewer" v-html="viewFiltered"></span>
+		<span @click="enableEdit" @focus="enableEdit" class="pseudo-editable viewer">
+			<span v-if="viewFiltered" v-html="viewFiltered"></span>
+			<span v-else style="font-style:italic; opacity: .5">(empty)</span>
+		</span>
 	</span>
 </script>

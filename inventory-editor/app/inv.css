@@ -29,6 +29,7 @@ body.vue_works #no_vue { display: none; }
 	color: #888;
 }
 
+
 /** new, Related to Semantic-UI **/
 
 #content {
@@ -36,8 +37,8 @@ body.vue_works #no_vue { display: none; }
 	padding: 2%;
 }
 
-.infobox {
-	margin-bottom: 2%;
+.messages, .infobox {
+	margin-bottom: 1.25em;
 }
 
 .infobox h3 { margin: 0; }

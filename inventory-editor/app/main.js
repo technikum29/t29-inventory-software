@@ -64,7 +64,7 @@ var app = {
 	},
 
 	// how frequently to compute json patch updates
-	debouncing_time_ms: 200,
+	debouncing_time_ms: 400,
 	// a prefix for generated URLS, such as "/app" or so, used in routing (without "http://...")
 	url_prefix: "/inventory-editor/",
 	// the id key field name
@@ -90,7 +90,9 @@ function setup_ui_dropdown(el, component) {
 	// This is ugly as hell but works at least, in contrast to the github issue solutions.
 	// However, Dropdowns using <select> as basis do (surprisingly!) work without any hacks.
 	return $(el).find('.ui.dropdown').dropdown({
+		clearable: true,
 		allowAdditions: true,
+		fullTextSearch: true,
 		onChange: function(value) {
 			var $field=$(this).find("input")
 			if(component && $field) {
@@ -151,6 +153,8 @@ unique = lst => naturalsort([...new Set(lst)])
 uniqueFieldValues = (obj, key) => unique($.map(obj, el => el[key]))
 // Get all values from a certain field
 fieldValues = (obj, key) => withoutNones($.map(obj, el => el[key]))
+// Get all unique keys used in a list of objects
+uniqueFieldKeys = obj => unique($.map(obj, el => Object.keys(el)).flat())
 // the safest method
 deepCopy = obj => JSON.parse(JSON.stringify(obj));
 // Makes a downloadable data URI for JSON documents
@@ -226,21 +230,46 @@ var setup_vue = function() {
 			component: Vue.component("InventoryList", {
 				template: '#inventory-list',
 				data: function() {
-					return { // shortcuts to reactive elements:
-						inventory: app.files.inventory,
-						view: app.view_settings.inventory_list
+					return {
+						view: app.view_settings.inventory_list, // shortcut
+						inventory: [], // original local computed list!
 					}
+				},
+				created: function() { this.query_inventory() },
+				watch: {
+					"app.global_view_settings.search_box_content": debounce(function() {
+						this.query_inventory()
+					}, 50) // 50ms delay for debouncing key input on search => more smooth
 				},
 				computed: {
 					url_for_teaser: function() {
 						return this.inventory.map(inv => teaser_url_for_id(inv[app.id_field]))
+					},
+					number_of_inv_without_photos: function() {
+						return this.url_for_teaser.filter(e => e).length
 					},
 					placeholder: () =>
 						pathJoin([
 							app.url_prefix,
 							app.config.paths.media_repository,
 							app.config.media.square_thumbnail_placeholder
-						])
+						]),
+				},
+				methods: {
+					query_inventory: function() {
+						var query = app.global_view_settings.search_box_content;
+						if(query) {
+							var fuse = new Fuse(app.files.inventory, {
+								shouldSort: true,
+								keys: uniqueFieldKeys(app.files.inventory),
+								minMatchCharLength: 2,
+								threshold: 0.4,
+							});
+							Vue.set(this, "inventory", fuse.search(query))
+						} else {
+							Vue.set(this, "inventory", app.files.inventory)
+						}
+					},
 				}
 			})
 		},
@@ -273,7 +302,16 @@ var setup_vue = function() {
 					// Nice dimming effect of Semantic-UI. Not important, thought.
 					// $('.cards .image').dimmer({ on: 'hover' });
 					
-					setup_ui_dropdown("#add-new-field-miniform", this)
+					var that = this;
+					this.add_new_field_dropdown = setup_ui_dropdown("#add-new-field-miniform", this)
+					// Won't properly work:
+					/*
+					this.add_new_field_dropdown
+						.dropdown('setting', 'onChange', function(value){
+							that.new_field_name = value // basically preserve previous onChange handler
+							that.add_new_field() // trigger "add" button
+						})
+					*/
 				},
 				methods: {
 					sort_media: function(current_idx, offset) {
@@ -295,7 +333,8 @@ var setup_vue = function() {
 					add_new_field: function() {
 						if(!this.new_field_name) { alert("Cannot add new field without name"); return }
 						Vue.set(this.inv, this.new_field_name, "")
-						this.new_field_name = ""
+						this.new_field_name = undefined
+						this.add_new_field_dropdown.dropdown("clear")
 						// could call dropdown("clear")
 					}
 				}
@@ -495,7 +534,7 @@ var setup_vue = function() {
 		
 		watch: {
 			state: { /* "state" property in the Vue data */ 
-				handler: debounce(app.send, app.debouncing_time_ms),
+				handler: debounce(persistentStorage.store, app.debouncing_time_ms),
 				deep: true,
 				//immediate: true // called immediately after start of observation
 			},
@@ -515,6 +554,10 @@ var setup_vue = function() {
 			link_prev: function() { this.link_detail("prev"); },
 			link_next: function() { this.link_detail("next"); },
 			reload: () => { persistentStorage.clear(); location.reload() },
+			triggerGlobalSearch: debounce(function() {
+				if(this.$route.name != "list_all")
+					this.$router.push({ name: "list_all"})
+			},  /* debounce time */ 300),
 		}
 	}).$mount('#app');
 	
@@ -566,6 +609,7 @@ var persistentStorage = {
 		"files", // data synced with server
 		"config", "working_copy",   // read-only from server
 		"view_settings", "global_view_settings",  // never shared with server
+		"patch_size", // indicator for changes
 	],
 	
 	ns: v => `inv/${v}` // namespacing the domain-wide localStorage
@@ -579,7 +623,7 @@ persistentStorage.load =()=> { persistentStorage.fields.forEach(k => app[k] = JS
 persistentStorage.clear =()=> persistentStorage.fields.forEach(k => localStorage.removeItem(persistentStorage.ns(k)))
 
 // An AJAX Promise that GET's JSON
-var load = src => fetch(src)
+var load = src => fetch(src, { cache: "reload" /* avoid caching */ })
 	.then(res => res.ok ? res : Promise.reject(`Request rejected with status ${res.status}`))
 	.catch(()=>
 		error_message("negative", "Could not download required ressource",
@@ -655,7 +699,13 @@ app.main = function() {
 
 	if(persistentStorage.isNonEmpty()) {
 		persistentStorage.load()
-		app.view_state = "pulling" // trigger a pull
+		
+		if(app.patch_size) {
+			show_message("info", "Restored changes", "Your changes have been loaded again. Go to the commit view to publish them or delete them.")
+			app.view_state = "viewing"
+		} else {
+			app.view_state = "pulling"
+		}
 	} else {
 		app.view_state = "cloning"
 	}
@@ -672,6 +722,8 @@ app.main = function() {
 		}
 		e.preventDefault();
 	});
+	
+	$(window).on("beforeunload", persistentStorage.store);
 };
 
 var markdown = new showdown.Converter({

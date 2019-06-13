@@ -189,7 +189,7 @@ def git_commit(req_handler):
 	if ret:
 		raise HTTPError(400, "Could not merge git branch %s to master (status %d)" % (author, ret))
 	# okay, whyever now the merge leaves us in an ugly state...
-	extgit("rebase", "HEADER", "master")
+	extgit("rebase", "HEAD", "master")
 
 	# TODO: Instead of dumb overwriting, should implement the following strategy:
 	#   1. Try to do a git merge, check if result is readable JSON. If so, nice.
