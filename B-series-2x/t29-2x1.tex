@@ -5,7 +5,8 @@
 
 \documentclass[a4paper,11pt]{extletter}
 %\usepackage[emptycrossmark,rowmode]{ticket}
-\usepackage[boxed]{ticket}
+%\usepackage[boxed]{ticket}
+\usepackage[cutmark]{ticket}
 
 \usepackage[a4paper,margin=0pt]{geometry}
 \setlength{\parindent}{0pt} % no effect
@@ -15,10 +16,10 @@
 % A4 page is 210 x 297 mm
 \unitlength=1mm
 % Das sind die Seiten-Offsets:
-\hoffset=0mm
+\hoffset=1mm
 \voffset=-3mm
 \ticketNumbers{1}{2}
-\ticketSize{210}{148.5}    % in unitlength
+\ticketSize{208}{148.5}    % in unitlength
 \ticketDistance{0}{0}    % in unitlength 
 
 \newcommand\bold{\bfseries\sffamily}
@@ -41,6 +42,7 @@
 \graphicspath{{../}}
 
 \usepackage{qrcode}
+\usepackage[code=Code39]{makebarcode}
 
 % make your default ticket. \ticketdefault is somewhat like a background
 % here it is empty, because we use different tickets for the front an
@@ -55,15 +57,16 @@
 
 % now what do you like to put in your ticket
 \newcommand{\acard}[1]{\ticket{%
+	\put( 65, 25){\barcode{T29/INV/#1}}
     \put( 55, 10){\SehrGross Inventar Nr. \bold \RiesenGross #1}
     \put( 20, 20){\qrcode[height=2.5cm,version=1]{t29/inventar/#1}}%
 }}
 
 \newcounter{inventarnr}
 
-% keep in mind that there are 29 bades on a page
-\newcommand\inventarStart{400}
-\newcommand\inventarStop{404}
+% keep in mind that there are 2 bades on a page
+\newcommand\inventarStart{289}
+\newcommand\inventarStop{316}
 
 \begin{document}%
 %\layout\newpage
@@ -82,7 +85,7 @@
 %
 % cards boxed
 \setcounter{inventarnr}{\inventarStart}\ticketreset\clearpage%
-\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
+%\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
 \whiledo{\theinventarnr<\inventarStop}{\stepcounter{inventarnr}\acard{\theinventarnr}}%
 %
 %

@@ -5,7 +5,7 @@
 
 \documentclass[a4paper,11pt]{extletter}
 %\usepackage[emptycrossmark,rowmode]{ticket}
-\usepackage[boxed]{ticket}
+\usepackage[emptycrossmark,rowmode]{ticket}
 
 \usepackage[a4paper,margin=0pt]{geometry}
 \setlength{\parindent}{0pt} % no effect
@@ -44,6 +44,7 @@
 \graphicspath{{../}}
 
 \usepackage{qrcode}
+\usepackage[code=Code39]{makebarcode}
 
 % make your default ticket. \ticketdefault is somewhat like a background
 % here it is empty, because we use different tickets for the front an
@@ -58,6 +59,7 @@
 
 % now what do you like to put in your ticket
 \newcommand{\acard}[1]{\ticket{%
+	\put( 70, 40){\rotatebox{90}{\barcode{T29/INV/#1}}}
     \put( 75, 35){\rotatebox{90}{\SehrGross Inventar Nr. \mybold \RiesenGross #1}}
     \put( 75, 10){\rotatebox{90}{\qrcode[height=2.0cm,version=1]{t29/inventar/#1}}}%
     \put(  8, 140){\rotatebox{180}{\MittelGross \ocrfamily \color{gray}{#1}}}%
@@ -66,8 +68,8 @@
 \newcounter{inventarnr}
 
 % keep in mind that there are 29 bades on a page
-\newcommand\inventarStart{400}
-\newcommand\inventarStop{404}
+\newcommand\inventarStart{803}
+\newcommand\inventarStop{883}
 
 \begin{document}%
 %\layout\newpage
@@ -86,7 +88,7 @@
 %
 % cards boxed
 \setcounter{inventarnr}{\inventarStart}\ticketreset\clearpage%
-\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
+%\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
 \whiledo{\theinventarnr<\inventarStop}{\stepcounter{inventarnr}\acard{\theinventarnr}}%
 %
 %
