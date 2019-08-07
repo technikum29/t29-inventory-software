@@ -60,3 +60,28 @@ form {
     display: none;
   }
 }
+
+body.showLog form {
+  float: left;
+  width: 30%; /* +2*5% padding */
+}
+
+body.showLog #log {
+  padding: 5%;
+  width: 68%;
+}
+
+table tr:nth-child(odd) {
+  background-color: #eee;
+}
+
+table td {
+  border: 1px solid #ddd;
+}
+
+td.inv-nr {
+  font-family: monospace;
+  text-align: right;
+  font-size: 180%;
+  font-weight: bold;
+}

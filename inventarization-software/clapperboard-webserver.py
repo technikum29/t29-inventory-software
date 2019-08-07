@@ -38,6 +38,7 @@ class MessageFile:
 		self.writer.writerow(row)
 		self.logger.writerow(row)
 		self.in_memory.append(row)
+		return row
 		
 	def msg(self, msg): # syntactic sugar
 		self.append({"event": "MSG", "inv-nr": "-", "comment": msg})
@@ -60,10 +61,10 @@ class PubSubWebSocket(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin): return True # allow all
 
     def on_message(self, message):
-	mf.append(json_decode(message))
+	row = mf.append(json_decode(message))
 	# pub to all subscribers
 	for c in ws_connections:
-		c.write_message(json_encode(message))
+		c.write_message(json_encode(row))
 
     def on_close(self):
         mf.msg("Websocket client %s disconnected" % self.request.remote_ip)
@@ -83,8 +84,9 @@ app = tornado.web.Application([
 
     ('/', make_handler(lambda req: req.redirect("clapperboard/"))),
     (r'/(.*)', tornado.web.StaticFileHandler, {
-	'path': static_file_path,
-	 "default_filename": "index.html"})
+         'path': static_file_path,
+	 "default_filename": "index.html"
+    })
 ], debug=True)
 
 print "Starting Tornado server on port %d" % port
