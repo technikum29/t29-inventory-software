@@ -69,6 +69,7 @@ var app = {
 	url_prefix: "/editor/",
 	// the id key field name
 	id_field: "Inv-Nr.",  // or: "Inventar-Nr."
+	// todo: Get it from the schema.
 	
 	// The path to the bootstrapping configuration
 	configuration_path: "/inventory-editor-config.json"
