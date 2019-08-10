@@ -6,6 +6,7 @@
 \documentclass{report}
 \usepackage[utf8]{inputenc}
 \usepackage[ngerman]{babel}
+\usepackage{eurosym}
 
 \usepackage{geometry}
 \geometry{
@@ -26,7 +27,10 @@
 \newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}} % rechtsbündig mit Breitenangabe
 
 \usepackage{graphicx,tikz}
-\graphicspath{{« graphicspath »}}
+\graphicspath{
+   {« graphicspath »}  % temporary directory setup by inventory2latex.py for whitespace-in-path workaround
+   {./}
+}
 
 % just for the nice TOC
 \newcommand\invisiblesection[1]{%
@@ -38,17 +42,20 @@
 \usepackage{fancyhdr,lastpage}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\begin{minipage}[b]{\textwidth}
+\fancyhead[C]{%
+%\hspace*{.2cm}%
+\begin{minipage}[b]{\textwidth}\centering
 {\bf technikum29 Computermuseum -- Inventarliste}
 \\[.08cm]
 «date_identifier»
+\textcolor{gray}{(Stand «git_commit»<< if not git_clean >>+edits<< endif >>)}
 \end{minipage}}
-\fancyhead[C]{} %zentrierte Kopfzeile
+%\fancyhead[C]{} %zentrierte Kopfzeile
 \fancyhead[R]{Seite \thepage\ / \pageref{LastPage}} %Kopfzeile rechts
-\renewcommand{\headrulewidth}{0.5pt} %obere Trennlinie
+%\renewcommand{\headrulewidth}{0.5pt} %obere Trennlinie
 
-%\fancyhf[lh,rh,ch]{}
-%\fancyhf[lh]{\begin{minipage}[b]{\textwidth}\raggedright ABCDE\\EFGH\\end{minipage}}
+\lhead{\includegraphics[height=1cm]{../cards/t29-logomarke.pdf}}
+
 
 \begin{document}
 % Here would be the right place to add any kind of text...
@@ -59,26 +66,24 @@
 \begin{minipage}[t][][b]{.6\textwidth}
   \noindent\begin{tabular}{@{}L{3cm}@{}L{7cm}}
   % Todo: Properties sind nicht sortiert.
-  << for field,schema in schema.properties.items() ->>
-     <<- if field in inv ->>
-       % Minipages to allow for whitespace
-       % and multiple lines
-       \begin{minipage}[t]{\linewidth}
-        \bf «field»
-       \end{minipage}
-       &
-       \begin{minipage}[t]{\linewidth}
-       «inv[field]»
-       \end{minipage}
-       \\
-     << endif ->>
+  << for field in sorted_fields_for(inv) ->>
+     % Minipages to allow for whitespace
+     % and multiple lines
+     %\begin{minipage}[t]{\linewidth}
+      { \bf « field|esc -» }
+     %\end{minipage}
+     &
+     \begin{minipage}[t]{\linewidth}
+     «- inv[field]|esc -»
+     \end{minipage}
+     \\
   << endfor >>
   \end{tabular}
 \end{minipage}
 \hspace{0.02\linewidth}
 \begin{minipage}[t][][b]{.4\textwidth}
    \strut\vspace*{-\baselineskip}\newline
-      << if inv[primary_key] in media ->>
+      << if inv[primary_key] in media and media_path_for(inv) ->>
       % This will restrict the image within the (width,height) box
        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{« media_path_for(inv) »}
 %        (insg. « media[inv[primary_key]] | count » Bilder)
