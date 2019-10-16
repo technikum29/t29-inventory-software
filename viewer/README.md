@@ -16,16 +16,16 @@ allows for integration into layout and usage of the navigation system.
 Installation
 ------------
 
-   git clone https://github.com/technikum29/technikum29-www.git
-   git clone https://github.com/technikum29/t29-inventory-software.git
-   cd t29-inventory-software/viewer
-   ln -s ../../technikum29-www/lib
-   mv lib t29-lib
+     git clone https://github.com/technikum29/technikum29-www.git
+    git clone https://github.com/technikum29/t29-inventory-software.git
+     cd t29-inventory-software/viewer
+     ln -s ../../technikum29-www/lib
+     mv lib t29-lib
 
 Then just serve this directory in your standard LAMP webserver, for
 instance
 
-   cd /var/www
-   ln -s "$OLDPWD"
-   browse "http://localhost/t29-inventory-software/viewer"
+     cd /var/www
+     ln -s "$OLDPWD"
+     browse "http://localhost/t29-inventory-software/viewer"
 

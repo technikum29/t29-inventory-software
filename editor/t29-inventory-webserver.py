@@ -16,7 +16,7 @@
 # Update: We no more use jsonpatch on the serverside, while we don't have
 # websockets any more.
 #
-# Quickly written by SvenK at 2019-04-26, 2019-05-10
+# Quickly written by SvenK at 2019-04-26, 2019-05-10, Public Domain
 
 #builtins
 import os, sys, csv, io, re, platform, datetime, random, string, subprocess, hashlib, time, errno, inspect, shutil
