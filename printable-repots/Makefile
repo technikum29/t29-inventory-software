@@ -16,3 +16,10 @@ pdf:
 clean:
 #	Clean LaTeX auxilliary files
 	rm -f *.aux *.log
+
+compress:
+	gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.7 -dNOPAUSE -dQUIET \
+		-dPDFSETTINGS=/ebook \
+		-dBATCH  -sOutputFile=$(TARGET).min.pdf $(TARGET).pdf
+	@ls -lh *.pdf
+
