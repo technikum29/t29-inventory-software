@@ -66,7 +66,7 @@ var app = {
 	// how frequently to compute json patch updates
 	debouncing_time_ms: 400,
 	// a prefix for generated URLS, such as "/app" or so, used in routing (without "http://...")
-	url_prefix: "/editor/",
+	url_prefix: "/inv/cards/editor/",
 	// the id key field name
 	id_field: "Inv-Nr.",  // or: "Inventar-Nr."
 	// todo: Get it from the schema (the field where "primary-key":true)
