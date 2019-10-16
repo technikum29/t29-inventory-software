@@ -1,0 +1,40 @@
+/**
+ * Styles for the mini PHP viewer
+ **/
+
+dl.properties {
+  display: flex;
+  flex-wrap: wrap;
+}
+#content dl.properties dt {
+  width: 33%;
+  margin-top: 0;
+}
+dl.properties dd {
+  margin-left: auto;
+  width: 66%;
+}
+
+dl.properties dt .title {
+	display: block;
+	font-weight: normal;
+	font-style: italic;
+	color: #757575;
+	font-size: 90%;
+}
+
+div.media a {
+  display: inline-block;
+  width: 200px;
+  margin: 5px;
+  box-shadow: 0 1px 4px 1px #dfeaf0;
+}
+
+div.media a:hover, div.media a:focus {
+  box-shadow: 0 1px 4px 1px #a07f60;
+}
+
+div.media img {
+  height: 100%;
+  width: 100%;
+}

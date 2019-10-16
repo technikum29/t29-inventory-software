@@ -1,6 +1,6 @@
 {
 	"_comment": "This configuration file drives client JS, CLI utils and the Py server endpoint of the t29 inventory software",
-
+	
 	"_comment/files": "Files to be edited by the client. Relative to inventory repository.",
 	"files": {
 		"inventory": "inventory.json",
@@ -10,9 +10,9 @@
 
 	"_comment/paths": "Paths, shared between client/server. Will most likely be symlinks.",
 	"paths": {
-		"inventory_repository": "inventory/",
+		"inventory_repository": "../inventory/",
 		"patches_directory": "patches/",
-		"media_repository": "media/"
+		"media_repository": "../media/"
 	},
 	
 	"_comment/media": "Configuration for thumbnail generators. All paths relative to media repository.",

@@ -5,7 +5,8 @@
 
 \documentclass[a4paper,11pt]{extletter}
 %\usepackage[emptycrossmark,rowmode]{ticket}
-\usepackage[boxed]{ticket}
+%\usepackage[boxed]{ticket}
+\usepackage[cutmark]{ticket}
 
 \usepackage[a4paper,margin=0pt]{geometry}
 \setlength{\parindent}{0pt} % no effect
@@ -15,10 +16,10 @@
 % A4 page is 210 x 297 mm
 \unitlength=1mm
 % Das sind die Seiten-Offsets:
-\hoffset=0mm
+\hoffset=1mm
 \voffset=-3mm
-\ticketNumbers{1}{2}
-\ticketSize{210}{148.5}    % in unitlength
+\ticketNumbers{1}{1}
+\ticketSize{210}{297}    % in unitlength
 \ticketDistance{0}{0}    % in unitlength 
 
 \newcommand\bold{\bfseries\sffamily}
@@ -30,6 +31,7 @@
 
 \usepackage{mathptmx}
 \usepackage{anyfontsize}
+\usepackage{ocr}
 
 
 \newcommand\Gross{\fontsize{25}{60}\selectfont}
@@ -46,24 +48,38 @@
 % here it is empty, because we use different tickets for the front an
 % the back of our card
 \renewcommand{\ticketdefault}{%
-    \put( 20, 100){\includegraphics[width=2.5cm]{t29-logomarke.pdf}}%
-    \put( 55, 125){\Gross Eigentum von}
-    \put( 55, 112){\SehrGross {\bold technikum29}}
-    \put( 55, 100){\Gross Computer Museum}
-    \put( 55, 4){{\color{gray}{Etiketten-Serie B, April 2019, Sven K\"oppel}}} 
+    \put( 20, 260){\includegraphics[width=2.5cm]{t29-logomarke.pdf}}%
+    \put( 55, 285){\Gross Eigentum von}
+    \put( 55, 271){\SehrGross {\bold technikum29}}
+    \put( 55, 260){\Gross Computer Museum}
+	\put( 20, 240){\Gross {\bold Verkaufsettikett }zum Ausf\"ullen}
+	
+	\put( 20, 220){\Gross  Objekt: }
+	\put( 20, 200){\Gross  Verkaufspreis: }
+	\put( 20, 180){\Gross  Einkaufspreis: }
+	\put( 20, 160){\Gross  Versandkosten: }
+	\put( 20, 140){\Gross  Gewicht: }
+	\put( 20, 120){\Gross  Verkäufer: }
+	\put( 20, 100){\Gross  Letzter Standort: }
+	\put( 20,  80){\Gross  Verkauft am: }
+
+    \put( 55, 20){{\color{gray}{Etiketten-Serie "Verkauf", August 2019, Sven K\"oppel}}} 
 }
 
 % now what do you like to put in your ticket
 \newcommand{\acard}[1]{\ticket{%
-    \put( 55, 10){\SehrGross Inventar Nr. \bold \RiesenGross #1}
-    \put( 20, 20){\qrcode[height=2.5cm,version=1]{t29/inventar/#1}}%
+    \put(  55,  30){\SehrGross Inventar Nr. \bold \RiesenGross #1}
+    \put(  20,  30){\qrcode[height=2.5cm,version=1]{t29/inventar/#1}}%
+    \put( 190, 250){\rotatebox{90}{\MittelGross \ocrfamily \color{gray}{\##1}}}%
+    \put( 190, 160){\rotatebox{90}{\MittelGross \ocrfamily \color{gray}{\##1}}}%
+    \put( 190, 70){\rotatebox{90}{\MittelGross \ocrfamily \color{gray}{\##1}}}%
 }}
 
 \newcounter{inventarnr}
 
-% keep in mind that there are 29 bades on a page
-\newcommand\inventarStart{400}
-\newcommand\inventarStop{404}
+% keep in mind that there are 2 bades on a page
+\newcommand\inventarStart{1500}
+\newcommand\inventarStop{1550}
 
 \begin{document}%
 %\layout\newpage
@@ -82,7 +98,7 @@
 %
 % cards boxed
 \setcounter{inventarnr}{\inventarStart}\ticketreset\clearpage%
-\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
+%\makeatletter\@cutmarkfalse\@boxedtrue\makeatother%
 \whiledo{\theinventarnr<\inventarStop}{\stepcounter{inventarnr}\acard{\theinventarnr}}%
 %
 %
