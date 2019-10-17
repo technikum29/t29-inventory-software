@@ -21,8 +21,46 @@ a standard tool, such as [jq](https://stedolan.github.io/jq/):
 Choosing a flat file database vs. a relational database
 -------------------------------------------------------
 
-*to be written*
+An inventory database shall store *properties* about individual *items* (or *records*,
+*entries*). Typically, the names (keys) of these properties (values) follow some standard
+schema. A relational database (following the SQL industry standard, for instance
+[PostgreSQL](https://www.postgresql.org/) or [SQLite](https://sqlite.org/)) is the
+standard approach to model and store such data in a comprehensible manner.
 
+Traditional database systems require a central server. Decentralized databases are subject
+to the [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem). There is a whole industry
+of databases to deal with these topics. However, when I was designing a *lightweight*
+inventory managament system, I was in search for an *easy* replacement of a single
+inventory table, until then managed with Excel/OpenOffice.
+
+Being a data scientist at heart, storing the inventory as a *flat file*, such as
+comma seperated values (CSV), was the most obvious choice for easy processing with standard
+scripting such as Perl, Python, Bash, etc. Storing *strucutred* data is just one step beyond
+a CSV file. In such an attempt, each CSV cell can itself store
+lists/dictionaries/tables/whatever-you-want. I see XML, [YAML](https://yaml.org/) and
+[JSON](http://json.org/) being the defacto standards for storing structured, primarily
+textual data in files. From all of them, JSON is especially simple and integrated in
+many standard libraries.
+
+The major advantage of using a flat file database representation is the possiblity of
+trivially adding *version control* to the overall database (content/schema). By adopting
+[git](https://git-scm.com/), we get decentralization and backups for free.
+
+The major drawback of this attemp is the lack of proper *foreign keys* (especially accross
+several JSON files) and the inherent repetition (especially of keys in the JSON file).
+On the other hand, it is easy to check for data integrity and do conversion from/to any
+format, especially the obvious SQLite.
+
+The choice of flat files is only maintainable for *small datasets* at the order of a few
+thousand entries. Such files, only a few kilobytes in size, can be parsed whenever needed
+in no time. At last, I choosed this format because I primarily concentrated on a web based
+JavaScript editor, a world in which JSON is the standard input/output file format. However,
+tools such as [jq](https://stedolan.github.io/jq/) also bring JSON data wrangling to the
+command line, not to mention the [vast amount](https://hn.algolia.com/?q=csv+command+line)
+of [command line structured text tools](https://github.com/dbohdan/structured-text-tools).
+
+Or, to phrase it differently: This is the ideal serialization format for
+inventory managament made for geeks.
 
 Inventory file
 --------------
