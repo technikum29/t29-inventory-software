@@ -3,8 +3,8 @@
 workdir="/tmp/inv-work"
 mkdir -p $workdir
 
-
-for inv in $(seq 1200 1210); do
+# start with 1, this makes multi page PDF numbering easier for humans!
+for inv in $(seq 1201 1300); do
     echo "Generating SVG for $inv"
     ./generate-svg-label.py $inv > $workdir/$inv.svg
     echo "Generating PDF for $inv"
