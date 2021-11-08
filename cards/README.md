@@ -36,3 +36,11 @@ Verschiedene Sätze ("Series A/B/C/...") gedruckt:
 
   Falls Herma 4452 noch gedruckt wird, sollte dies als Series D
   gespeichert werden, um Verwirrung zu vermeiden.
+  
+  Ferner existiert ein Serie C-Bogen 1132-1143.
+
+* Series D: Nov 2021 auf silberne Sicherheits-Inventaretiketten
+  der Größe 30x50mm. Gedruckt wurden
+  
+  * (1143-1200 übersprungen als Sicherheitsabstand)
+  * 1200-1300  gedruckt als Etiketten
