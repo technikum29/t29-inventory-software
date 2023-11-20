@@ -44,3 +44,8 @@ Verschiedene Sätze ("Series A/B/C/...") gedruckt:
   
   * (1143-1200 übersprungen als Sicherheitsabstand)
   * 1200-1300  gedruckt als Etiketten
+
+* Series E: Nov 2023 auf Thermopapieretiketten der Größe 103x199mm.
+  Gedruckt wurden:
+  
+  * 1301 - 1322 jeweils einschließlich
